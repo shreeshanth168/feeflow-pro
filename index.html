@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FeeFlow Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; }
+  :root {
+    --bg: #F8FAFC; --surface: #FFFFFF; --primary: #0F172A; --text-secondary: #64748B;
+    --border: #E2E8F0; --success: #10B981; --success-bg: #ECFDF5;
+    --warning: #F59E0B; --warning-bg: #FFFBEB; --danger: #EF4444; --danger-bg: #FEF2F2;
+    --accent: #2563EB; --accent-bg: #EFF6FF;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+    --shadow-md: 0 4px 12px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+    --shadow-lg: 0 20px 48px rgba(15,23,42,0.12);
+    --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
+  }
+  html[data-theme="dark"] {
+    --bg: #0B1120; --surface: #131B2C; --primary: #F1F5F9; --text-secondary: #8B98AC;
+    --border: #232E44; --success: #34D399; --success-bg: #0F2A22;
+    --warning: #FBBF24; --warning-bg: #2E2308; --danger: #F87171; --danger-bg: #2E1414;
+    --accent: #60A5FA; --accent-bg: #12233F;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
+    --shadow-lg: 0 20px 48px rgba(0,0,0,0.5);
+  }
+  body, .card, .navbar, .sidebar, input, select, .kpi-card, .dropdown-panel { transition: background-color .15s, border-color .15s, color .15s; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--primary); -webkit-font-smoothing: antialiased; animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  h1,h2,h3,p { margin: 0; }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--accent-bg); }
+  *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- layout ---------- */
+  .page-max { max-width: 1440px; margin: 0 auto; padding: 32px; }
+  @media (max-width: 900px) { .page-max { padding: 20px; } }
+
+  /* ---------- typography ---------- */
+  .text-page-title { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  .text-section-title { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .text-secondary { color: var(--text-secondary); font-size: 14px; }
+  .text-small { font-size: 13px; color: var(--text-secondary); }
+  .text-kpi { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+
+  /* ---------- form controls ---------- */
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+  input, select {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
+    font-family: inherit; font-size: 14px; background: var(--surface); color: var(--primary);
+    transition: border-color .12s, box-shadow .12s;
+  }
+  input::placeholder { color: #94A3B8; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+  .field { margin-bottom: 16px; }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    border: 1px solid transparent; border-radius: var(--r-sm); padding: 9px 16px;
+    font-weight: 500; font-size: 14px; cursor: pointer; font-family: inherit;
+    transition: background .12s, border-color .12s, transform .12s; white-space: nowrap;
+  }
+  .btn svg { width: 15px; height: 15px; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: #1E293B; }
+  .btn-secondary { background: var(--surface); border-color: var(--border); color: var(--primary); }
+  .btn-secondary:hover { background: #F1F5F9; }
+  .btn-danger { background: var(--surface); border-color: #FCA5A5; color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-bg); }
+  .btn-ghost { background: transparent; color: var(--text-secondary); }
+  .btn-ghost:hover { background: #F1F5F9; color: var(--primary); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-sm { padding: 7px 12px; font-size: 13px; }
+  .btn-block { width: 100%; }
+  .btn-icon { padding: 8px; }
+
+  /* ---------- cards ---------- */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; box-shadow: var(--shadow-sm); }
+  .card-tight { padding: 16px; }
+
+  /* ---------- kpi cards ---------- */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 1000px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .kpi-grid { grid-template-columns: 1fr; } }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 20px; box-shadow: var(--shadow-sm); transition: transform .15s, box-shadow .15s; cursor: default;
+  }
+  .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .kpi-icon { width: 36px; height: 36px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .kpi-icon svg { width: 18px; height: 18px; }
+  .kpi-number { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; margin-bottom: 6px; }
+  .kpi-label { font-size: 14px; font-weight: 500; color: var(--primary); }
+  .kpi-trend { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ---------- badges ---------- */
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px; }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge-success { background: var(--success-bg); color: #047857; }
+  .badge-success .badge-dot { background: var(--success); }
+  .badge-warning { background: var(--warning-bg); color: #B45309; }
+  .badge-warning .badge-dot { background: var(--warning); }
+  .badge-danger { background: var(--danger-bg); color: #B91C1C; }
+  .badge-danger .badge-dot { background: var(--danger); }
+  .badge-neutral { background: #F1F5F9; color: var(--text-secondary); }
+  .badge-neutral .badge-dot { background: #94A3B8; }
+
+  /* ---------- table ---------- */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { text-align: left; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr { transition: background .1s; }
+  .data-table tbody tr:hover { background: #F8FAFC; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-bg); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12.5px; flex-shrink: 0; }
+
+  /* ---------- empty state ---------- */
+  .empty-state { text-align: center; padding: 64px 24px; }
+  .empty-state .icon-wrap { width: 56px; height: 56px; border-radius: 50%; background: #F1F5F9; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; }
+  .empty-state .icon-wrap svg { width: 24px; height: 24px; color: var(--text-secondary); }
+  .empty-state h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .empty-state p { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+
+  /* ---------- banners ---------- */
+  .banner { border-radius: var(--r-md); padding: 13px 16px; font-size: 13.5px; display: flex; gap: 10px; align-items: flex-start; border: 1px solid transparent; }
+  .banner svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+  .banner-warning { background: var(--warning-bg); color: #92400E; border-color: #FDE68A; }
+  .banner-danger { background: var(--danger-bg); color: #991B1B; border-color: #FECACA; }
+  .banner-success { background: var(--success-bg); color: #065F46; border-color: #A7F3D0; }
+  .error-text { color: var(--danger); font-size: 13px; font-weight: 500; margin: 6px 0; }
+
+  code { background: #F1F5F9; padding: 2px 7px; border-radius: 5px; font-size: 12.5px; font-family: 'SF Mono', Consolas, monospace; }
+
+  /* ---------- navbar (centre app) ---------- */
+  .navbar { position: sticky; top: 0; z-index: 50; height: 72px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 32px; gap: 32px; }
+  @media (max-width: 900px) { .navbar { padding: 0 16px; gap: 16px; } }
+  .nav-logo { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .nav-logo .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
+  .nav-links { display: flex; align-items: center; gap: 4px; flex: 1; }
+  .nav-link { padding: 8px 14px; border-radius: var(--r-sm); font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all .12s; }
+  .nav-link:hover { color: var(--primary); background: #F1F5F9; }
+  .nav-link.active { color: var(--primary); background: #F1F5F9; }
+  @media (max-width: 780px) { .nav-links { display: none; } }
+  .theme-toggle { }
+  .bottom-tabbar { display: none; }
+  @media (max-width: 780px) {
+    .bottom-tabbar {
+      display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 62px;
+      background: var(--surface); border-top: 1px solid var(--border); z-index: 50;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .bottom-tabbar .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #4B5768; font-size: 10.5px; font-weight: 500; cursor: pointer; }
+    .bottom-tabbar .tab-item svg { width: 19px; height: 19px; }
+    .bottom-tabbar .tab-item.active { color: var(--accent); }
+    .page-max { padding-bottom: 84px; }
+  }
+  .nav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .nav-search { position: relative; width: 220px; }
+  @media (max-width: 780px) { .nav-search { display: none; } }
+  .nav-search input { padding-left: 34px; background: #F8FAFC; }
+  .nav-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #94A3B8; }
+  .icon-btn { position: relative; width: 36px; height: 36px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); border: 1px solid transparent; transition: all .12s; background: none; }
+  .icon-btn:hover { background: #F1F5F9; color: var(--primary); }
+  .icon-btn svg { width: 18px; height: 18px; }
+  .notif-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
+  .dropdown { position: relative; }
+  .dropdown-panel { display: none; position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-lg); min-width: 260px; padding: 8px; z-index: 60; animation: dropIn .12s ease; }
+  .dropdown-panel.open { display: block; }
+  @keyframes dropIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .dropdown-item { padding: 9px 12px; border-radius: var(--r-sm); font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 9px; color: var(--primary); }
+  .dropdown-item svg { width: 15px; height: 15px; color: var(--text-secondary); }
+  .dropdown-item:hover { background: #F1F5F9; }
+  .dropdown-header { padding: 10px 12px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+  .profile-trigger { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; border-radius: 999px; cursor: pointer; border: 1px solid var(--border); }
+  .profile-trigger:hover { background: #F8FAFC; }
+
+  /* ---------- quick actions ---------- */
+  .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .quick-actions .btn { border-radius: var(--r-md); }
+
+  /* ---------- charts ---------- */
+  .bar-chart { display: flex; align-items: flex-end; gap: 14px; height: 160px; padding-top: 10px; }
+  .bar-chart .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; }
+  .bar-chart .bar { width: 100%; max-width: 34px; background: var(--accent); border-radius: 5px 5px 0 0; transition: opacity .12s; min-height: 3px; }
+  .bar-chart .bar:hover { opacity: 0.8; }
+  .bar-chart .bar-label { font-size: 11.5px; color: var(--text-secondary); }
+  .pie-wrap { display: flex; align-items: center; gap: 20px; }
+  .pie { width: 96px; height: 96px; border-radius: 50%; flex-shrink: 0; }
+  .pie-legend { display: flex; flex-direction: column; gap: 8px; }
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 3px; }
+
+  /* ---------- activity timeline ---------- */
+  .timeline-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .timeline-item:last-child { border-bottom: none; }
+  .timeline-dot-wrap { width: 28px; height: 28px; border-radius: 50%; background: #F1F5F9; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .timeline-dot-wrap svg { width: 14px; height: 14px; color: var(--text-secondary); }
+  .timeline-text { font-size: 13.5px; font-weight: 500; }
+  .timeline-time { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* ---------- login ---------- */
+  .login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+  .login-card { width: 100%; max-width: 380px; background: var(--surface); border-radius: var(--r-lg); padding: 40px 36px; border: 1px solid var(--border); box-shadow: var(--shadow-lg); }
+
+  /* ---------- id/pass box ---------- */
+  .id-pass-box { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--bg); border: 1px dashed var(--border); border-radius: var(--r-md); padding: 16px; }
+  @media (max-width: 600px) { .id-pass-box { grid-template-columns: 1fr; } }
+  .sub-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 6px; }
+
+  /* ---------- admin shell (sidebar) ---------- */
+  .admin-shell { display: flex; min-height: 100vh; }
+  .sidebar { width: 248px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
+  .sidebar-logo { display: flex; align-items: center; gap: 8px; padding: 6px 8px 20px; font-weight: 700; font-size: 16px; }
+  .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
+  .sidebar-profile { display: flex; align-items: center; gap: 10px; padding: 10px 8px; background: var(--bg); border-radius: var(--r-md); margin-bottom: 18px; }
+  .sidebar-profile .name { font-weight: 600; font-size: 13.5px; }
+  .sidebar-profile .role { font-size: 11.5px; color: var(--text-secondary); }
+  .sidebar-nav-item { padding: 9px 12px; border-radius: var(--r-sm); cursor: pointer; font-weight: 500; font-size: 14px; margin-bottom: 2px; display: flex; align-items: center; gap: 10px; color: #3F4C5E; background: transparent; border: 1px solid transparent; transition: all .12s; }
+  .sidebar-nav-item svg { width: 17px; height: 17px; stroke-width: 2.25; flex-shrink: 0; }
+  .sidebar-nav-item:hover { background: var(--bg); border-color: var(--border); color: var(--primary); }
+  .sidebar-nav-item.active { background: var(--primary); color: #FFFFFF; border-color: var(--primary); }
+  .sidebar-nav-item.active svg { stroke: #FFFFFF; }
+  @media (max-width: 800px) { .sidebar-nav-item { background: var(--bg); border-color: var(--border); margin-bottom: 8px; justify-content: center; padding: 10px; } .sidebar-nav-item.active { background: var(--primary); } }
+  .sidebar-bottom { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+  .admin-main { flex: 1; min-width: 0; }
+  .sidebar .dropdown { width: 100%; }
+  .sidebar .dropdown-panel { left: calc(100% + 8px); right: auto; top: auto; bottom: 0; }
+  .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 80; }
+  .sidebar-backdrop.open { display: block; }
+  @media (max-width: 780px) {
+    .centre-shell .sidebar { position: fixed; left: -100%; top: 0; width: 240px; height: 100vh; z-index: 90; transition: left .18s ease; box-shadow: var(--shadow-lg); }
+    .centre-shell .sidebar.open { left: 0; }
+    .centre-shell .sidebar .sidebar-logo span:last-child, .centre-shell .sidebar .sidebar-profile .name, .centre-shell .sidebar .sidebar-profile .role, .centre-shell .sidebar .sidebar-nav-item span { display: inline !important; }
+    .centre-shell .sidebar .sidebar-profile, .centre-shell .sidebar .sidebar-nav-item { justify-content: flex-start; }
+    .centre-mobile-bar { display: flex !important; }
+  }
+  @media (min-width: 781px) { .centre-mobile-bar { display: none !important; } }
+  .centre-mobile-bar { }
+  @media (max-width: 800px) { .sidebar { width: 72px; } .sidebar-logo span:last-child, .sidebar-profile .name, .sidebar-profile .role, .sidebar-nav-item span { display: none; } .sidebar-profile { justify-content: center; } .sidebar-nav-item { justify-content: center; } }
+  @media (max-width: 560px) {
+    .sidebar { position: fixed; left: -100%; top: 0; width: 240px; z-index: 90; transition: left .18s ease; box-shadow: var(--shadow-lg); }
+    .sidebar.open { left: 0; }
+    .sidebar .sidebar-logo span:last-child, .sidebar .sidebar-profile .name, .sidebar .sidebar-profile .role, .sidebar .sidebar-nav-item span { display: inline !important; }
+    .sidebar .sidebar-profile { justify-content: flex-start; }
+    .sidebar .sidebar-nav-item { justify-content: flex-start; }
+    .admin-mobile-bar { display: flex !important; }
+  }
+  .admin-mobile-bar { display: none; align-items: center; gap: 12px; height: 56px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 60; }
+
+  /* ---------- print ---------- */
+  @media print {
+    body * { visibility: hidden; }
+    #printable-receipt, #printable-receipt * { visibility: visible; }
+    #printable-receipt { position: fixed; top: 0; left: 0; width: 100%; }
+    .no-print { display: none !important; }
+  }
+  .receipt-dashed { border-top: 1px dashed var(--border); margin: 14px 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+
+// =====================================================================
+// SUPABASE CONFIG — paste your own project's values here.
+// Find both under: Supabase dashboard -> Project Settings -> API
+// =====================================================================
+const SUPABASE_URL = '__SUPABASE_URL__';
+const SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY__';
+
+const sb = (SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+function db() {
+  if (!sb) throw new Error('Supabase is not configured yet.');
+  return sb;
+}
+function genUUID() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+
+const ICON_PATHS = {
+  'alert-circle': '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12" y2="16.01"/>',
+  'alert-triangle': '<path d="M12 3 22 20 2 20Z"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17" x2="12" y2="17.01"/>',
+  'bell': '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  'check': '<polyline points="20 6 9 17 4 12"/>',
+  'download': '<path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/>',
+  'eye': '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  'hand-coins': '<circle cx="8" cy="8" r="5"/><circle cx="15" cy="15" r="5"/>',
+  'layout-dashboard': '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+  'lock': '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  'lock-open': '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
+  'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  'menu': '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
+  'moon': '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5Z"/>',
+  'sun': '<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4" y1="12" x2="2" y2="12"/><line x1="22" y1="12" x2="20" y2="12"/><line x1="5" y1="5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19" y2="19"/><line x1="5" y1="19" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19" y2="5"/>',
+  'pencil': '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  'plus': '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  'plus-circle': '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  'printer': '<polyline points="6 9 6 3 18 3 18 9"/><rect x="4" y="9" width="16" height="8" rx="1"/><rect x="7" y="14" width="10" height="7"/>',
+  'search': '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>',
+  'send': '<line x1="21" y1="3" x2="10" y2="14"/><polygon points="21 3 14 21 10 14 3 10 21 3"/>',
+  'settings': '<circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V19a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H4a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H10a1.7 1.7 0 0 0 1-1.55V4a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V10a1.7 1.7 0 0 0 1.55 1H20a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z"/>',
+  'settings-2': '<line x1="4" y1="6" x2="14" y2="6"/><line x1="17" y1="6" x2="20" y2="6"/><circle cx="15.5" cy="6" r="2"/><line x1="4" y1="12" x2="9" y2="12"/><line x1="12" y1="12" x2="20" y2="12"/><circle cx="10.5" cy="12" r="2"/><line x1="4" y1="18" x2="13" y2="18"/><line x1="16" y1="18" x2="20" y2="18"/><circle cx="14.5" cy="18" r="2"/>',
+  'trash-2': '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+  'user-plus': '<circle cx="9" cy="8" r="4"/><path d="M2 21v-2a5 5 0 0 1 5-5h4"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/>',
+  'user-check': '<circle cx="9" cy="8" r="4"/><path d="M2 21v-2a5 5 0 0 1 5-5h3"/><polyline points="16 12 18 14 22 10"/>',
+  'user-x': '<circle cx="9" cy="8" r="4"/><path d="M2 21v-2a5 5 0 0 1 5-5h3"/><line x1="17" y1="9" x2="22" y2="14"/><line x1="22" y1="9" x2="17" y2="14"/>',
+  'x': '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  'users': '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'clock': '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+  'building-2': '<rect x="4" y="3" width="10" height="18"/><rect x="16" y="9" width="4" height="12"/><line x1="7" y1="7" x2="7" y2="7.01"/><line x1="10.5" y1="7" x2="10.5" y2="7.01"/><line x1="7" y1="11" x2="7" y2="11.01"/><line x1="10.5" y1="11" x2="10.5" y2="11.01"/><line x1="7" y1="15" x2="7" y2="15.01"/><line x1="10.5" y1="15" x2="10.5" y2="15.01"/>',
+  'check-circle': '<circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/>',
+  'home': '<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',
+  'bar-chart-3': '<line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="15"/>',
+  'receipt': '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/>',
+  'activity': '<polyline points="3 12 8 12 10 6 14 18 16 12 21 12"/>',
+};
+function svgIcon(name, extra) {
+  if (name === 'indian-rupee') {
+    return `<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:inline-block; vertical-align:-0.15em;" ${extra||''}><text x="12" y="18" text-anchor="middle" font-size="18" font-weight="700" fill="currentColor" font-family="Inter,sans-serif">₹</text></svg>`;
+  }
+  const body = ICON_PATHS[name];
+  if (!body) return '<svg viewBox="0 0 24 24" width="1em" height="1em"></svg>';
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra||''}>${body}</svg>`;
+}
+function ic() { /* no-op: icons now render inline via svgIcon(), no post-render pass needed */ }
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function initials(name) { return (name||'?').trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function money(n) { return '₹' + Number(n||0).toLocaleString('en-IN'); }
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff/60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins/60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs/24);
+  if (days < 30) return days + 'd ago';
+  return new Date(iso).toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+}
+function waLink(phone, studentName, amount, dueDay) {
+  let digits = (phone || '').replace(/\D/g,'');
+  if (digits.length === 10) digits = '91' + digits;
+  const msg = `Hi! This is a reminder that ${studentName}'s tuition fee of Rs. ${amount} was due on the ${dueDay}th of this month. Please pay at your earliest convenience. Thank you!`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+}
+async function copyText(text, btn) {
+  await navigator.clipboard.writeText(text);
+  const original = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.textContent = original; }, 1200);
+}
+
+// ---------- theme (kept local to this browser, not shared business data) ----------
+async function loadThemePref() { try { return localStorage.getItem('feeflow_theme') || 'light'; } catch { return 'light'; } }
+async function saveThemePref(theme) { try { localStorage.setItem('feeflow_theme', theme); } catch {} }
+async function applyThemePref() {
+  const theme = await loadThemePref();
+  document.documentElement.setAttribute('data-theme', theme);
+}
+async function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  await saveThemePref(next);
+}
+
+// ---------- data layer (Supabase) ----------
+// In-memory cache so repeated reads within a session (which happen on nearly
+// every click) don't re-fetch from the database each time. Only save/delete
+// calls invalidate/update it.
+const CACHE = {};
+
+async function loadCentres() {
+  if (CACHE.centres) return CACHE.centres;
+  const { data, error } = await db().from('centres').select('*').order('created_at', { ascending: false });
+  if (error) { console.error(error); return []; }
+  CACHE.centres = data;
+  return data;
+}
+async function saveCentres(list) {
+  CACHE.centres = list;
+  const { error } = await db().from('centres').upsert(list);
+  if (error) console.error(error);
+}
+async function deleteCentre(id) {
+  delete CACHE.centres;
+  delete CACHE['students:' + id]; delete CACHE['payments:' + id]; delete CACHE['activity:' + id];
+  const { error } = await db().from('centres').delete().eq('id', id);
+  if (error) console.error(error);
+}
+
+async function loadStudents(centreId) {
+  const key = 'students:' + centreId;
+  if (CACHE[key]) return CACHE[key];
+  const { data, error } = await db().from('students').select('*').eq('centre_id', centreId).order('student_name');
+  if (error) { console.error(error); return []; }
+  CACHE[key] = data;
+  return data;
+}
+async function saveStudents(centreId, list) {
+  CACHE['students:' + centreId] = list;
+  const rows = list.map(s => ({ ...s, centre_id: centreId }));
+  const { error } = await db().from('students').upsert(rows);
+  if (error) console.error(error);
+}
+
+// Payments keep their existing camelCase shape (studentId/amountPaid/paidAt)
+// everywhere else in the app — the mapping to/from the DB's snake_case
+// columns happens right here, so nothing else in the app had to change.
+async function loadPayments(centreId) {
+  const key = 'payments:' + centreId;
+  if (CACHE[key]) return CACHE[key];
+  const { data, error } = await db().from('payments').select('*').eq('centre_id', centreId);
+  if (error) { console.error(error); return []; }
+  const mapped = (data || []).map(p => ({ id: p.id, studentId: p.student_id, month: p.month, year: p.year, amountPaid: Number(p.amount_paid), paidAt: p.paid_at }));
+  CACHE[key] = mapped;
+  return mapped;
+}
+async function savePayments(centreId, list) {
+  CACHE['payments:' + centreId] = list;
+  const rows = list.map(p => ({ id: p.id, centre_id: centreId, student_id: p.studentId, month: p.month, year: p.year, amount_paid: p.amountPaid, paid_at: p.paidAt }));
+  const { error } = await db().from('payments').upsert(rows);
+  if (error) console.error(error);
+}
+
+async function loadActivity(centreId) {
+  const key = 'activity:' + centreId;
+  if (CACHE[key]) return CACHE[key];
+  const { data, error } = await db().from('activity_log').select('*').eq('centre_id', centreId).order('at', { ascending: true });
+  if (error) { console.error(error); return []; }
+  CACHE[key] = data;
+  return data;
+}
+async function saveActivity(centreId, list) {
+  const trimmed = list.slice(-40);
+  CACHE['activity:' + centreId] = trimmed;
+  const rows = trimmed.map(a => ({ ...a, centre_id: centreId }));
+  const { error } = await db().from('activity_log').upsert(rows);
+  if (error) console.error(error);
+}
+
+async function loadAdminAuth() {
+  if (CACHE.admin_auth) return CACHE.admin_auth;
+  const { data, error } = await db().from('admin_settings').select('*').eq('id', 1).single();
+  if (error) { console.error(error); return { login_id: 'admin', password: 'admin123', name: 'Platform Admin' }; }
+  CACHE.admin_auth = data;
+  return data;
+}
+async function saveAdminAuth(auth) {
+  CACHE.admin_auth = auth;
+  const { error } = await db().from('admin_settings').update({ login_id: auth.login_id, password: auth.password, name: auth.name }).eq('id', 1);
+  if (error) console.error(error);
+}
+async function logActivity(centreId, type, text) {
+  const list = await loadActivity(centreId);
+  list.push({ id: genUUID(), type, text, at: new Date().toISOString() });
+  await saveActivity(centreId, list);
+}
+
+function computeStatus(centre) {
+  if (centre.subscription_status === 'paused') return 'paused';
+  if (centre.manual_lock) return 'locked';
+  const end = new Date(centre.subscription_end_date);
+  const now = new Date();
+  if (now <= end) return 'active';
+  const graceEnd = new Date(end); graceEnd.setDate(graceEnd.getDate() + 7);
+  return now <= graceEnd ? 'expired' : 'locked';
+}
+function canWrite(status) { return status === 'active' || status === 'expired'; }
+
+let state = {
+  view: 'login', session: null, loginErr: '', studentsSearch: '',
+  adminView: 'dashboard', adminSearch: '', lastCreatedCentre: null, editingCentreId: null,
+  centreView: 'dashboard', navSearch: '', showNotif: false, showProfile: false, showAddStudent: false, autoOpenAddStudent: false,
+};
+
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('Unhandled error:', e.reason);
+  const msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
+  const banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed; bottom:16px; left:16px; right:16px; max-width:420px; margin:0 auto; background:#FEF2F2; border:1px solid #FECACA; color:#991B1B; padding:12px 16px; border-radius:10px; font-family:Inter,sans-serif; font-size:13.5px; z-index:999; box-shadow:0 8px 24px rgba(0,0,0,0.15);';
+  banner.textContent = 'Something failed: ' + msg;
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 8000);
+});
+
+function render() {
+  const app = document.getElementById('app');
+  if (state.view === 'login') app.innerHTML = viewLogin();
+  else if (state.view === 'force_reset') app.innerHTML = viewForceReset();
+  else if (state.view === 'admin') renderAdminShell().catch(showFatalError);
+  else if (state.view === 'centre') renderCentreShell().catch(showFatalError);
+  bindPostRender();
+  ic();
+}
+function showFatalError(err) {
+  console.error(err);
+  document.getElementById('app').innerHTML = `
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="nav-logo" style="margin-bottom:8px;"><span class="dot"></span>FeeFlow Pro</div>
+      <h2 class="text-section-title" style="margin-bottom:10px; color:var(--danger);">Something went wrong</h2>
+      <p class="text-secondary" style="margin-bottom:16px; word-break:break-word;">${esc(err && err.message ? err.message : String(err))}</p>
+      <button class="btn btn-secondary btn-block" onclick="location.reload()">Reload and try again</button>
+    </div>
+  </div>`;
+}
+function bindPostRender() {
+  if (state.view === 'login') bindLogin();
+  if (state.view === 'force_reset') bindForceReset();
+}
+
+// close dropdowns on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-dropdown-trigger]') && !e.target.closest('.dropdown-panel')) {
+    document.querySelectorAll('.dropdown-panel.open').forEach(p => p.classList.remove('open'));
+    state.showNotif = false; state.showProfile = false;
+  }
+});
+
+// =====================================================================
+// LOGIN
+// =====================================================================
+function viewLogin() {
+  return `
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="nav-logo" style="margin-bottom:8px;"><span class="dot"></span>FeeFlow Pro</div>
+      <p class="text-secondary" style="margin-bottom:28px;">Sign in to manage your fees and students.</p>
+      <div class="field"><label>Login ID</label><input id="li-id" placeholder="Your login ID" /></div>
+      <div class="field"><label>Password</label><input id="li-pw" type="password" placeholder="Your password" /></div>
+      ${state.loginErr ? `<div class="error-text">${esc(state.loginErr)}</div>` : ''}
+      <button class="btn btn-primary btn-block" id="li-btn" style="margin-top:6px; padding:11px;">Sign in</button>
+      <p class="text-small" style="margin-top:18px; text-align:center;">Don't have a login? Ask FeeFlow Pro to set up your centre.</p>
+    </div>
+  </div>`;
+}
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(
+      `${label} took too long to respond. This usually means a network/firewall block, or your Supabase project is paused — check the Supabase dashboard, and try disabling any ad-blocker or VPN.`
+    )), ms))
+  ]);
+}
+
+function bindLogin() {
+  const btn = document.getElementById('li-btn');
+  if (!btn) return;
+  const doLogin = async () => {
+    const id = document.getElementById('li-id').value.trim();
+    const pw = document.getElementById('li-pw').value;
+    if (!id || !pw) { state.loginErr = 'Enter both your login ID and password.'; render(); return; }
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try {
+      const adminAuth = await withTimeout(loadAdminAuth(), 10000, 'Supabase');
+      if (id.toLowerCase() === adminAuth.login_id.toLowerCase() && pw === adminAuth.password) {
+        state.session = { type: 'admin' }; state.loginErr = ''; state.view = 'admin'; state.adminView = 'dashboard';
+        render(); return;
+      }
+      const centres = await withTimeout(loadCentres(), 10000, 'Supabase');
+      const centre = centres.find(c => c.login_id.toLowerCase() === id.toLowerCase() && c.password === pw);
+      if (centre) {
+        state.loginErr = '';
+        state.session = { type: 'centre', centreId: centre.id };
+        state.view = centre.must_reset_password ? 'force_reset' : 'centre';
+        state.centreView = 'dashboard';
+        render(); return;
+      }
+      state.loginErr = "That login ID or password isn't right.";
+      render();
+    } catch (err) {
+      console.error(err);
+      state.loginErr = err.message || 'Could not reach the database.';
+      render();
+    } finally {
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  };
+  btn.onclick = doLogin;
+  document.getElementById('li-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+}
+
+function viewForceReset() {
+  return `
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="nav-logo" style="margin-bottom:8px;"><span class="dot"></span>FeeFlow Pro</div>
+      <h2 class="text-section-title" style="margin-bottom:6px;">Set your password</h2>
+      <p class="text-secondary" style="margin-bottom:24px;">This is your first time signing in. Choose a new password before continuing.</p>
+      <div class="field"><label>New password</label><input id="fr-pw1" type="password" placeholder="At least 6 characters" /></div>
+      <div class="field"><label>Confirm new password</label><input id="fr-pw2" type="password" /></div>
+      <div id="fr-err" class="error-text"></div>
+      <button class="btn btn-primary btn-block" id="fr-btn" style="padding:11px;">Set password and continue</button>
+    </div>
+  </div>`;
+}
+function bindForceReset() {
+  document.getElementById('fr-btn').onclick = async () => {
+    const p1 = document.getElementById('fr-pw1').value;
+    const p2 = document.getElementById('fr-pw2').value;
+    const errEl = document.getElementById('fr-err');
+    if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
+    if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
+    const centres = await loadCentres();
+    const centre = centres.find(c => c.id === state.session.centreId);
+    centre.password = p1; centre.must_reset_password = false;
+    await saveCentres(centres);
+    state.view = 'centre'; state.centreView = 'dashboard';
+    render();
+  };
+}
+
+function signOut() {
+  state.session = null; state.view = 'login'; state.loginErr='';
+  state.lastCreatedCentre = null; state.adminSearch=''; state.editingCentreId = null; state.adminView = 'dashboard';
+  state.centreView = 'dashboard'; state.showNotif = false; state.showProfile = false;
+  render();
+}
+
+// =====================================================================
+// CENTRE APP SHELL — top navbar + Dashboard / Students / Payments / Reports
+// =====================================================================
+async function renderCentreShell() {
+  if (!state.session || state.session.type !== 'centre') { state.view = 'login'; render(); return; }
+  const centres = await loadCentres();
+  const centre = centres.find(c => c.id === state.session.centreId);
+  if (!centre) { signOut(); return; }
+  const status = computeStatus(centre);
+  const writable = canWrite(status);
+  const students = await loadStudents(centre.id);
+  const activeStudents = students.filter(s => s.is_active);
+  const payments = await loadPayments(centre.id);
+  const now = new Date();
+  const m = now.getMonth()+1, y = now.getFullYear();
+
+  const rows = activeStudents.map(s => {
+    const payment = payments.find(p => p.studentId === s.id && p.month === m && p.year === y);
+    let rowStatus = 'pending';
+    if (payment) rowStatus = 'paid';
+    else if (now.getDate() > s.fee_due_day) rowStatus = 'overdue';
+    return { student: s, status: rowStatus, payment };
+  });
+  const overdueRows = rows.filter(r => r.status === 'overdue');
+
+  const sideNavItem = (key, icon, label) => `<div class="sidebar-nav-item ${state.centreView===key?'active':''}" data-centrenav="${key}" title="${label}" aria-label="${label}">${svgIcon(icon)}<span>${label}</span></div>`;
+
+  document.getElementById('app').innerHTML = `
+    <div class="admin-mobile-bar centre-mobile-bar">
+      <button class="icon-btn" id="centre-hamburger" title="Open menu" aria-label="Open menu">${svgIcon('menu')}</button>
+      <div class="nav-logo"><span class="dot"></span>FeeFlow Pro</div>
+    </div>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <div class="admin-shell centre-shell">
+      <div class="sidebar" id="centre-sidebar">
+        <div class="sidebar-logo"><span class="dot"></span><span>FeeFlow Pro</span></div>
+        <div class="sidebar-profile">
+          <div class="avatar">${initials(centre.centre_name)}</div>
+          <div>
+            <div class="name">${esc(centre.centre_name)}</div>
+            <div class="role">${esc(centre.owner_name)}</div>
+          </div>
+        </div>
+        ${sideNavItem('dashboard','home','Home')}
+        ${sideNavItem('students','users','Students')}
+        ${sideNavItem('payments','hand-coins','Payments')}
+        ${sideNavItem('reports','bar-chart-3','Reports')}
+        ${sideNavItem('settings','settings','Settings')}
+        <div class="sidebar-bottom">
+          <div class="dropdown">
+            <div class="sidebar-nav-item" data-dropdown-trigger id="notif-btn" title="Notifications" aria-label="Notifications">
+              ${svgIcon('bell')}<span>Notifications</span>${overdueRows.length ? '<span class="notif-dot" style="position:static; margin-left:auto; border:none;"></span>' : ''}
+            </div>
+            <div class="dropdown-panel ${state.showNotif ? 'open' : ''}" style="width:280px;">
+              <div class="dropdown-header"><strong style="font-size:13px;">Overdue fees</strong></div>
+              ${overdueRows.length === 0 ? '<div class="dropdown-item" style="color:var(--text-secondary);">Nothing overdue right now.</div>' :
+                overdueRows.slice(0,6).map(r => `<div class="dropdown-item">${svgIcon('alert-circle')}${esc(r.student.student_name)} · ${money(r.student.monthly_fee)}</div>`).join('')}
+            </div>
+          </div>
+          <div class="sidebar-nav-item" id="theme-toggle-btn" title="Toggle dark mode" aria-label="Toggle dark mode">${svgIcon('moon')}<span>Dark mode</span></div>
+          <div class="sidebar-nav-item" id="signout-item" title="Sign out" aria-label="Sign out">${svgIcon('log-out')}<span>Sign out</span></div>
+        </div>
+      </div>
+      <div class="admin-main"><div class="page-max" id="centre-content"></div></div>
+    </div>
+  `;
+
+  const hamburger = document.getElementById('centre-hamburger');
+  const sidebarEl = document.getElementById('centre-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (hamburger) hamburger.onclick = () => { sidebarEl.classList.add('open'); backdrop.classList.add('open'); };
+  if (backdrop) backdrop.onclick = () => { sidebarEl.classList.remove('open'); backdrop.classList.remove('open'); };
+
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  if (themeToggleBtn) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    themeToggleBtn.innerHTML = `${svgIcon(isDark ? 'sun' : 'moon')}<span>${isDark ? 'Light mode' : 'Dark mode'}</span>`;
+    themeToggleBtn.onclick = async () => { await toggleTheme(); render(); };
+  }
+  document.getElementById('notif-btn').onclick = (e) => {
+    e.stopPropagation();
+    const panel = e.currentTarget.parentElement.querySelector('.dropdown-panel');
+    panel.classList.toggle('open');
+    state.showNotif = panel.classList.contains('open');
+  };
+  document.getElementById('signout-item').onclick = signOut;
+
+  document.querySelectorAll('[data-centrenav]').forEach(el => {
+    el.onclick = () => { state.centreView = el.getAttribute('data-centrenav'); state.showAddStudent = false; sidebarEl?.classList.remove('open'); backdrop?.classList.remove('open'); render(); };
+  });
+  if (state.centreView === 'dashboard') await renderCentreDashboardPage(centre, status, writable, rows, students, payments);
+  else if (state.centreView === 'students') await renderCentreStudentsPage(centre, writable, students);
+  else if (state.centreView === 'payments') await renderCentrePaymentsPage(centre, writable, rows);
+  else if (state.centreView === 'reports') await renderCentreReportsPage(centre, payments, rows);
+  else if (state.centreView === 'settings') await renderCentreSettingsPage(centre);
+}
+
+function statusBanner(status) {
+  if (status === 'expired') return `<div class="banner banner-warning" style="margin-bottom:24px;">${svgIcon('alert-triangle')}<div>Your subscription has expired. You're in a grace period — renew soon to avoid interruption.</div></div>`;
+  if (status === 'locked') return `<div class="banner banner-danger" style="margin-bottom:24px;">${svgIcon('lock')}<div>Your subscription is locked. You can view records, but adding students or marking fees paid is paused until you renew.</div></div>`;
+  return '';
+}
+
+// --- Dashboard page ---
+async function renderCentreDashboardPage(centre, status, writable, rows, students, payments) {
+  const paid = rows.filter(r => r.status === 'paid');
+  const pending = rows.filter(r => r.status === 'pending');
+  const overdue = rows.filter(r => r.status === 'overdue');
+  const revenue = paid.reduce((sum, r) => sum + (r.payment ? r.payment.amountPaid : 0), 0);
+
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  // last month revenue for trend
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lastMonthRevenue = payments.filter(p => p.month === lastMonthDate.getMonth()+1 && p.year === lastMonthDate.getFullYear())
+    .reduce((s,p) => s + p.amountPaid, 0);
+
+  // 6-month bar chart
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const total = payments.filter(p => p.month === d.getMonth()+1 && p.year === d.getFullYear()).reduce((s,p)=>s+p.amountPaid,0);
+    months.push({ label: d.toLocaleString('en-IN',{month:'short'}), total });
+  }
+  const maxRev = Math.max(...months.map(m=>m.total), 1);
+
+  // pie: paid vs pending+overdue (this month, active students)
+  const totalRows = rows.length || 1;
+  const paidPct = Math.round((paid.length/totalRows)*100);
+
+  const activity = await loadActivity(centre.id);
+  const recentActivity = activity.slice(-6).reverse();
+
+  document.getElementById('centre-content').innerHTML = `
+    <div class="row" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:28px; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 class="text-page-title">${greeting}, ${esc(centre.centre_name)}</h1>
+        <p class="text-secondary" style="margin-top:6px;">${now.toLocaleString('en-IN',{month:'long',year:'numeric'})} · Current month</p>
+      </div>
+      <div class="text-secondary" style="font-size:14px;">${now.toLocaleDateString('en-IN',{weekday:'long', day:'numeric', month:'long'})}</div>
+    </div>
+
+    ${statusBanner(status)}
+
+    <div class="kpi-grid" style="margin-bottom:28px;">
+      ${kpiCard('users', 'var(--success)', 'var(--success-bg)', paid.length, 'Paid Students', `of ${rows.length} active students`)}
+      ${kpiCard('clock', 'var(--warning)', 'var(--warning-bg)', pending.length, 'Pending', 'due this month')}
+      ${kpiCard('alert-circle', 'var(--danger)', 'var(--danger-bg)', overdue.length, 'Overdue', 'needs follow-up')}
+      ${kpiCard('indian-rupee', 'var(--accent)', 'var(--accent-bg)', money(revenue), 'Revenue', lastMonthRevenue ? `vs ${money(lastMonthRevenue)} last month` : 'collected this month')}
+    </div>
+
+    <div class="text-section-title" style="margin-bottom:12px;">Quick actions</div>
+    <div class="quick-actions" style="margin-bottom:28px;">
+      <button class="btn btn-secondary" id="qa-add-student">${svgIcon('user-plus')}Add Student</button>
+      <button class="btn btn-secondary" id="qa-collect-fee">${svgIcon('hand-coins')}Collect Fee</button>
+      <button class="btn btn-secondary" id="qa-export">${svgIcon('download')}Export Report</button>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1.6fr 1fr; gap: 20px; margin-bottom:28px;" class="dash-grid">
+      <div class="card">
+        <div class="text-section-title" style="margin-bottom:4px;">Revenue collected</div>
+        <p class="text-small" style="margin-bottom:8px;">Last 6 months</p>
+        <div class="bar-chart">
+          ${months.map(mo => `
+            <div class="bar-col">
+              <div class="text-small" style="font-size:11px;">${mo.total ? '₹'+Math.round(mo.total/1000)+'k' : ''}</div>
+              <div class="bar" style="height:${Math.max((mo.total/maxRev)*100,2)}%;"></div>
+              <div class="bar-label">${mo.label}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="text-section-title" style="margin-bottom:16px;">Paid vs Pending</div>
+        <div class="pie-wrap">
+          <div class="pie" style="background: conic-gradient(var(--success) 0% ${paidPct}%, var(--warning) ${paidPct}% ${paidPct + Math.round(((pending.length)/totalRows)*100)}%, var(--danger) ${paidPct + Math.round(((pending.length)/totalRows)*100)}% 100%);"></div>
+          <div class="pie-legend">
+            <div class="legend-row"><span class="legend-dot" style="background:var(--success);"></span>Paid (${paid.length})</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--warning);"></span>Pending (${pending.length})</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--danger);"></span>Overdue (${overdue.length})</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="text-section-title" style="margin-bottom:8px;">Recent activity</div>
+      ${recentActivity.length === 0 ? `<p class="text-secondary" style="padding:16px 0;">No activity yet — actions you take will show up here.</p>` :
+        recentActivity.map(a => `
+        <div class="timeline-item">
+          <div class="timeline-dot-wrap">${svgIcon(activityIcon(a.type))}</div>
+          <div>
+            <div class="timeline-text">${esc(a.text)}</div>
+            <div class="timeline-time">${timeAgo(a.at)}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <style>@media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr !important; } }</style>
+  `;
+  ic();
+
+  document.getElementById('qa-add-student').onclick = async () => {
+    state.centreView = 'students'; state.autoOpenAddStudent = true; render();
+  };
+  document.getElementById('qa-collect-fee').onclick = () => { state.centreView = 'payments'; render(); };
+  document.getElementById('qa-export').onclick = () => exportReportCsv(centre, rows);
+}
+
+function kpiCard(icon, color, bg, num, label, trend) {
+  return `
+  <div class="kpi-card">
+    <div class="kpi-icon" style="background:${bg}; color:${color};">${svgIcon(icon)}</div>
+    <div class="kpi-number">${num}</div>
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-trend">${trend}</div>
+  </div>`;
+}
+function activityIcon(type) {
+  if (type === 'payment') return 'hand-coins';
+  if (type === 'receipt') return 'receipt';
+  if (type === 'reminder') return 'send';
+  if (type === 'student') return 'user-plus';
+  return 'activity';
+}
+function exportReportCsv(centre, rows) {
+  const header = 'Student,Parent,Batch,Monthly Fee,Status,Due Day\n';
+  const lines = rows.map(r => [r.student.student_name, r.student.parent_name||'', r.student.batch||'', r.student.monthly_fee, r.status, r.student.fee_due_day].join(','));
+  const blob = new Blob([header + lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${centre.centre_name.replace(/\s+/g,'-')}-report-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// --- Students page ---
+async function renderCentreStudentsPage(centre, writable, students) {
+  const batches = [...new Set(students.map(s => s.batch).filter(Boolean))];
+  const q = state.studentsSearch.toLowerCase();
+  const filtered = students.filter(s => `${s.student_name} ${s.parent_name||''} ${s.batch||''}`.toLowerCase().includes(q));
+  const payments = await loadPayments(centre.id);
+  const now = new Date(); const m = now.getMonth()+1, y = now.getFullYear();
+
+  document.getElementById('centre-content').innerHTML = `
+    <div class="row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+      <h1 class="text-page-title">Students</h1>
+      <button class="btn btn-primary" id="toggle-add-student">${svgIcon('user-plus')}Add Student</button>
+    </div>
+
+    ${!writable ? `<div class="banner banner-danger" style="margin-bottom:20px;">${svgIcon('lock')}Adding students is paused while your subscription is locked.</div>` : ''}
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="nav-search" style="width:100%; max-width:340px;">
+        ${svgIcon('search')}
+        <input id="s-search" placeholder="Search by student, parent, or batch…" value="${esc(state.studentsSearch)}" />
+      </div>
+    </div>
+
+    ${filtered.length === 0 ? emptyState('users', 'No students yet', 'Start by adding your first student.', writable ? 'Add Student' : null, 'toggle-add-student') : `
+    <div class="card" style="padding:0; overflow-x:auto;">
+      <table class="data-table">
+        <thead><tr><th></th><th>Student</th><th>Class</th><th>Phone</th><th>Monthly Fee</th><th>Status</th><th>Last Payment</th><th></th></tr></thead>
+        <tbody>
+          ${filtered.map(s => {
+            const payment = payments.find(p => p.studentId === s.id && p.month === m && p.year === y);
+            let st = 'pending';
+            if (payment) st = 'paid'; else if (now.getDate() > s.fee_due_day) st = 'overdue';
+            const lastPayment = payments.filter(p => p.studentId === s.id).sort((a,b)=> new Date(b.paidAt)-new Date(a.paidAt))[0];
+            return `
+            <tr>
+              <td><div class="avatar">${initials(s.student_name)}</div></td>
+              <td style="font-weight:500;">${esc(s.student_name)}${!s.is_active ? ' <span class="badge badge-neutral" style="margin-left:6px;">Inactive</span>' : ''}</td>
+              <td class="text-secondary">${esc(s.batch)||'—'}</td>
+              <td class="text-secondary">${esc(s.parent_whatsapp)||'—'}</td>
+              <td>${money(s.monthly_fee)}</td>
+              <td>${statusBadge(s.is_active ? st : 'inactive')}</td>
+              <td class="text-secondary">${lastPayment ? timeAgo(lastPayment.paidAt) : '—'}</td>
+              <td>
+                <div style="display:flex; gap:6px; justify-content:flex-end;">
+                  <button class="btn btn-ghost btn-sm btn-icon" data-view="${s.id}" title="View" aria-label="View ${esc(s.student_name)}">${svgIcon('eye')}</button>
+                  <button class="btn btn-ghost btn-sm btn-icon" data-edit="${s.id}" title="Edit" aria-label="Edit ${esc(s.student_name)}" ${!writable?'disabled':''}>${svgIcon('pencil')}</button>
+                  <button class="btn btn-ghost btn-sm btn-icon" data-toggleactive="${s.id}" title="${s.is_active?'Mark inactive':'Reactivate'}" ${!writable?'disabled':''}>${svgIcon(s.is_active?'user-x':'user-check')}</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`}
+    <div id="student-modal-root"></div>
+  `;
+  ic();
+
+  const toggleBtn = document.getElementById('toggle-add-student');
+  if (toggleBtn) toggleBtn.onclick = () => openAddStudentModal(centre, batches);
+  if (state.autoOpenAddStudent) { state.autoOpenAddStudent = false; openAddStudentModal(centre, batches); }
+
+  const searchEl = document.getElementById('s-search');
+  if (searchEl) {
+    searchEl.oninput = () => { state.studentsSearch = searchEl.value; renderCentreStudentsPage(centre, writable, students); };
+    searchEl.focus(); searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
+  }
+
+
+  document.querySelectorAll('[data-toggleactive]').forEach(el => el.onclick = async () => {
+    const id = el.getAttribute('data-toggleactive');
+    const sList = await loadStudents(centre.id);
+    const s = sList.find(x => x.id === id);
+    s.is_active = !s.is_active;
+    await saveStudents(centre.id, sList);
+    render();
+  });
+
+  document.querySelectorAll('[data-view]').forEach(el => el.onclick = async () => {
+    const id = el.getAttribute('data-view');
+    const s = students.find(x => x.id === id);
+    const hist = payments.filter(p => p.studentId === id).sort((a,b)=> new Date(b.paidAt)-new Date(a.paidAt));
+    const totalPaid = hist.reduce((sum,p) => sum + p.amountPaid, 0);
+    showModal(`
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:20px;">
+        <div class="avatar" style="width:48px; height:48px; font-size:16px;">${initials(s.student_name)}</div>
+        <div>
+          <div class="text-section-title">${esc(s.student_name)}</div>
+          <div class="text-small">${esc(s.parent_name||'')} · ${esc(s.parent_whatsapp)}</div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px;">
+        <div class="card card-tight" style="text-align:center;"><div style="font-weight:700; font-size:18px;">${money(s.monthly_fee)}</div><div class="text-small">Monthly fee</div></div>
+        <div class="card card-tight" style="text-align:center;"><div style="font-weight:700; font-size:18px;">${esc(s.batch)||'—'}</div><div class="text-small">Class / Batch</div></div>
+        <div class="card card-tight" style="text-align:center;"><div style="font-weight:700; font-size:18px;">${money(totalPaid)}</div><div class="text-small">Total paid</div></div>
+      </div>
+      <div class="text-secondary" style="font-size:13px; font-weight:600; margin-bottom:8px;">Payment history</div>
+      <div style="max-height:200px; overflow-y:auto; margin-bottom:16px;">
+        ${hist.length === 0 ? '<p class="text-secondary">No payments recorded yet.</p>' :
+          hist.map(p => `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:13.5px;"><span>${p.month}/${p.year}</span><span>${money(p.amountPaid)}</span><span class="text-small">${timeAgo(p.paidAt)}</span></div>`).join('')}
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-secondary btn-sm" id="profile-edit-btn">${svgIcon('pencil')}Edit</button>
+        <button class="btn btn-secondary btn-sm" id="modal-close-btn">Close</button>
+      </div>
+    `);
+    const editBtn = document.getElementById('profile-edit-btn');
+    if (editBtn) editBtn.onclick = () => { closeModal(); document.querySelector(`[data-edit="${id}"]`)?.click(); };
+  });
+
+  document.querySelectorAll('[data-edit]').forEach(el => el.onclick = () => {
+    const id = el.getAttribute('data-edit');
+    const s = students.find(x => x.id === id);
+    showModal(`
+      <div class="text-section-title" style="margin-bottom:16px;">Edit student</div>
+      <div class="field"><label>Student name</label><input id="es-name" value="${esc(s.student_name)}" /></div>
+      <div class="field"><label>Parent name</label><input id="es-parent" value="${esc(s.parent_name||'')}" /></div>
+      <div class="field"><label>Parent WhatsApp</label><input id="es-whatsapp" value="${esc(s.parent_whatsapp)}" /></div>
+      <div class="field"><label>Class / Batch</label><input id="es-batch" value="${esc(s.batch||'')}" /></div>
+      <div class="field"><label>Monthly fee (₹)</label><input id="es-fee" type="number" value="${s.monthly_fee}" /></div>
+      <div class="field"><label>Fee due day</label><input id="es-dueday" type="number" min="1" max="28" value="${s.fee_due_day}" /></div>
+      <div id="es-err" class="error-text"></div>
+      <div style="display:flex; gap:10px; margin-top:8px;">
+        <button class="btn btn-primary" id="es-save">Save changes</button>
+        <button class="btn btn-secondary" id="modal-close-btn">Cancel</button>
+      </div>
+    `);
+    document.getElementById('es-save').onclick = async () => {
+      const name = document.getElementById('es-name').value.trim();
+      const wa = document.getElementById('es-whatsapp').value.trim();
+      const fee = Number(document.getElementById('es-fee').value);
+      if (!name || !wa || !fee) { document.getElementById('es-err').textContent = 'Name, WhatsApp, and fee are required.'; return; }
+      const sList = await loadStudents(centre.id);
+      const target = sList.find(x => x.id === id);
+      target.student_name = name;
+      target.parent_name = document.getElementById('es-parent').value.trim();
+      target.parent_whatsapp = wa;
+      target.batch = document.getElementById('es-batch').value.trim();
+      target.monthly_fee = fee;
+      target.fee_due_day = Number(document.getElementById('es-dueday').value);
+      await saveStudents(centre.id, sList);
+      closeModal();
+      render();
+    };
+  });
+}
+
+function statusBadge(status) {
+  if (status === 'paid') return `<span class="badge badge-success"><span class="badge-dot"></span>Paid</span>`;
+  if (status === 'pending') return `<span class="badge badge-warning"><span class="badge-dot"></span>Pending</span>`;
+  if (status === 'overdue') return `<span class="badge badge-danger"><span class="badge-dot"></span>Overdue</span>`;
+  return `<span class="badge badge-neutral"><span class="badge-dot"></span>Inactive</span>`;
+}
+function emptyState(icon, title, desc, btnLabel, btnTargetId) {
+  return `
+  <div class="card">
+    <div class="empty-state">
+      <div class="icon-wrap">${svgIcon(icon)}</div>
+      <h3>${title}</h3>
+      <p>${desc}</p>
+      ${btnLabel ? `<button class="btn btn-primary" onclick="document.getElementById('${btnTargetId}').click()">${btnLabel}</button>` : ''}
+    </div>
+  </div>`;
+}
+function openAddStudentModal(centre, batches) {
+  showModal(`
+    <div class="text-section-title" style="margin-bottom:16px;">New student</div>
+    <div class="field"><label>Student name</label><input id="as-name" /></div>
+    <div class="field"><label>Parent name</label><input id="as-parent" /></div>
+    <div class="field"><label>Parent WhatsApp number</label><input id="as-whatsapp" placeholder="10-digit number" /></div>
+    <div class="field"><label>Class / Batch</label><input id="as-batch" placeholder="e.g. Batch A" list="as-batch-list" />
+      <datalist id="as-batch-list">${batches.map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
+    </div>
+    <div class="field"><label>Monthly fee (₹)</label><input id="as-fee" type="number" /></div>
+    <div class="field"><label>Fee due day of month</label><input id="as-dueday" type="number" min="1" max="28" value="5" /></div>
+    <div id="as-err" class="error-text"></div>
+    <div style="display:flex; gap:10px; margin-top:8px;">
+      <button class="btn btn-primary" id="as-save">Add student</button>
+      <button class="btn btn-secondary" id="modal-close-btn">Cancel</button>
+    </div>
+  `);
+  document.getElementById('as-save').onclick = async () => {
+    const name = document.getElementById('as-name').value.trim();
+    const parent = document.getElementById('as-parent').value.trim();
+    const wa = document.getElementById('as-whatsapp').value.trim();
+    const batch = document.getElementById('as-batch').value.trim();
+    const fee = Number(document.getElementById('as-fee').value);
+    const dueDay = Number(document.getElementById('as-dueday').value);
+    const err = document.getElementById('as-err');
+    err.textContent = '';
+    if (!name || !wa || !fee) { err.textContent = 'Please fill in student name, WhatsApp number, and fee.'; return; }
+    const sList = await loadStudents(centre.id);
+    sList.push({ id: genUUID(), student_name: name, parent_name: parent, parent_whatsapp: wa, batch, monthly_fee: fee, fee_due_day: dueDay, is_active: true, created_at: new Date().toISOString() });
+    await saveStudents(centre.id, sList);
+    await logActivity(centre.id, 'student', `New student added: ${name}`);
+    closeModal();
+    render();
+  };
+}
+function showModal(innerHtml) {
+  const root = document.getElementById('student-modal-root') || document.body;
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-overlay';
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.4); display:flex; align-items:center; justify-content:center; z-index:100; animation:fadeIn .15s ease;';
+  overlay.innerHTML = `<div class="card" style="width:100%; max-width:420px; margin:16px; box-shadow:var(--shadow-lg);">${innerHtml}</div>`;
+  overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+  document.body.appendChild(overlay);
+  ic();
+  const closeBtn = document.getElementById('modal-close-btn');
+  if (closeBtn) closeBtn.onclick = closeModal;
+}
+function closeModal() { const el = document.getElementById('modal-overlay'); if (el) el.remove(); }
+
+// --- Payments page ---
+async function renderCentrePaymentsPage(centre, writable, rows) {
+  const overdue = rows.filter(r => r.status === 'overdue');
+  const pending = rows.filter(r => r.status === 'pending');
+  const paid = rows.filter(r => r.status === 'paid');
+
+  document.getElementById('centre-content').innerHTML = `
+    <h1 class="text-page-title" style="margin-bottom:24px;">Payments</h1>
+    ${statusBanner(computeStatus(centre))}
+    ${rows.length === 0 ? emptyState('receipt', 'No fee records yet', 'Add students to start tracking fees.', null, null) : `
+      ${paySection('Overdue', overdue, writable)}
+      ${paySection('Pending', pending, writable)}
+      ${paySection('Paid this month', paid, writable)}
+    `}
+    <div id="payment-modal-root"></div>
+  `;
+  ic();
+
+  document.querySelectorAll('[data-markpaid]').forEach(el => el.onclick = async () => {
+    const sid = el.getAttribute('data-markpaid');
+    const row = rows.find(r => r.student.id === sid);
+    const s = row.student;
+    const payList = await loadPayments(centre.id);
+    const now = new Date();
+    payList.push({ id: genUUID(), studentId: sid, month: now.getMonth()+1, year: now.getFullYear(), amountPaid: s.monthly_fee, paidAt: now.toISOString() });
+    await savePayments(centre.id, payList);
+    await logActivity(centre.id, 'payment', `Collected ${money(s.monthly_fee)} from ${s.student_name}`);
+    await logActivity(centre.id, 'receipt', `Receipt generated for ${s.student_name}`);
+    const receiptNo = 'RCPT-' + now.getFullYear() + '-' + uid().slice(0,5).toUpperCase();
+    showModal(`
+      <div id="printable-receipt">
+        <div style="text-align:center; padding:4px 0 18px;">
+          <div class="icon-wrap" style="background:var(--success-bg); margin:0 auto 12px;">${svgIcon('check', 'style="color:var(--success);"')}</div>
+          <div class="nav-logo" style="justify-content:center; margin-bottom:2px;"><span class="dot"></span>${esc(centre.centre_name)}</div>
+          <p class="text-small">Fee receipt</p>
+        </div>
+        <div class="receipt-dashed"></div>
+        <div style="font-size:13.5px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span class="text-secondary">Receipt No.</span><span>${receiptNo}</span></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span class="text-secondary">Student</span><span>${esc(s.student_name)}</span></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span class="text-secondary">Parent</span><span>${esc(s.parent_name||'—')}</span></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span class="text-secondary">Month</span><span>${now.toLocaleString('en-IN',{month:'long',year:'numeric'})}</span></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span class="text-secondary">Date paid</span><span>${now.toLocaleDateString('en-IN')}</span></div>
+        </div>
+        <div class="receipt-dashed"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:17px; font-weight:700;">
+          <span>Amount paid</span><span>${money(s.monthly_fee)}</span>
+        </div>
+        <div class="receipt-dashed"></div>
+        <p class="text-small" style="text-align:center;">Generated by FeeFlow Pro</p>
+      </div>
+      <div class="no-print" style="display:flex; gap:8px; margin-top:18px;">
+        <button class="btn btn-secondary btn-block" id="print-receipt-btn">${svgIcon('printer')}Print</button>
+        <button class="btn btn-primary btn-block" id="modal-close-btn">Done</button>
+      </div>
+    `);
+    document.getElementById('print-receipt-btn').onclick = () => window.print();
+  });
+
+  document.querySelectorAll('[data-remind]').forEach(el => el.onclick = async () => {
+    const sid = el.getAttribute('data-remind');
+    const row = rows.find(r => r.student.id === sid);
+    await logActivity(centre.id, 'reminder', `Fee reminder sent to ${row.student.parent_name || row.student.student_name}`);
+  });
+}
+function paySection(title, list, writable) {
+  if (list.length === 0) return '';
+  return `
+  <div class="text-section-title" style="margin: 20px 0 12px;">${title} (${list.length})</div>
+  <div class="card" style="padding:0;">
+    ${list.map((r,i) => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; ${i<list.length-1?'border-bottom:1px solid var(--border);':''}">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div class="avatar">${initials(r.student.student_name)}</div>
+        <div>
+          <div style="font-weight:500; font-size:14px;">${esc(r.student.student_name)}</div>
+          <div class="text-small">${esc(r.student.parent_name||'')} · ${money(r.student.monthly_fee)} · due day ${r.student.fee_due_day}</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        ${r.status !== 'paid' ? `
+          <a class="btn btn-secondary btn-sm" target="_blank" href="${waLink(r.student.parent_whatsapp, r.student.student_name, r.student.monthly_fee, r.student.fee_due_day)}" data-remind="${r.student.id}">${svgIcon('send')}Remind</a>
+          <button class="btn btn-primary btn-sm" data-markpaid="${r.student.id}" ${!writable?'disabled title="Renew subscription to mark paid"':''}>${svgIcon('hand-coins')}Collect Fee</button>
+        ` : `<span class="badge badge-success"><span class="badge-dot"></span>Paid</span>`}
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// --- Reports page ---
+async function renderCentreReportsPage(centre, payments, rows) {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const total = payments.filter(p => p.month === d.getMonth()+1 && p.year === d.getFullYear()).reduce((s,p)=>s+p.amountPaid,0);
+    months.push({ label: d.toLocaleString('en-IN',{month:'short', year:'2-digit'}), total });
+  }
+  const maxRev = Math.max(...months.map(m=>m.total), 1);
+  const thisMonthRevenue = months[months.length-1].total;
+  const paid = rows.filter(r=>r.status==='paid').length;
+  const pending = rows.filter(r=>r.status==='pending').length;
+  const overdue = rows.filter(r=>r.status==='overdue').length;
+
+  document.getElementById('centre-content').innerHTML = `
+    <div class="row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+      <h1 class="text-page-title">Reports</h1>
+      <button class="btn btn-secondary" id="export-btn">${svgIcon('download')}Export Report</button>
+    </div>
+
+    <div class="kpi-grid" style="margin-bottom:28px;">
+      ${kpiCard('indian-rupee', 'var(--accent)', 'var(--accent-bg)', money(thisMonthRevenue), 'This month revenue', now.toLocaleString('en-IN',{month:'long'}))}
+      ${kpiCard('users', 'var(--success)', 'var(--success-bg)', paid, 'Paid', 'students this month')}
+      ${kpiCard('clock', 'var(--warning)', 'var(--warning-bg)', pending, 'Pending', 'students this month')}
+      ${kpiCard('alert-circle', 'var(--danger)', 'var(--danger-bg)', overdue, 'Overdue', 'students this month')}
+    </div>
+
+    <div class="card">
+      <div class="text-section-title" style="margin-bottom:4px;">Monthly collections</div>
+      <p class="text-small" style="margin-bottom:8px;">Last 6 months</p>
+      <div class="bar-chart">
+        ${months.map(mo => `
+          <div class="bar-col">
+            <div class="text-small" style="font-size:11px;">${mo.total ? '₹'+Math.round(mo.total/1000)+'k' : ''}</div>
+            <div class="bar" style="height:${Math.max((mo.total/maxRev)*100,2)}%;"></div>
+            <div class="bar-label">${mo.label}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+  ic();
+  document.getElementById('export-btn').onclick = () => exportReportCsv(centre, rows);
+}
+
+// --- Settings page (centre) ---
+async function renderCentreSettingsPage(centre) {
+  const status = computeStatus(centre);
+  const badgeMap = { active: 'badge-success', expired: 'badge-warning', locked: 'badge-danger', paused: 'badge-neutral' };
+  const prefs = centre.notif_prefs || { whatsapp: true, email: false };
+
+  document.getElementById('centre-content').innerHTML = `
+    <h1 class="text-page-title" style="margin-bottom:24px;">Settings</h1>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="text-section-title" style="margin-bottom:16px;">Account</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="avatar" style="width:44px; height:44px; font-size:15px;">${initials(centre.centre_name)}</div>
+          <div>
+            <div style="font-weight:600;">${esc(centre.centre_name)}</div>
+            <div class="text-small">Login ID: <code>${esc(centre.login_id)}</code> · Plan: ${centre.plan}</div>
+          </div>
+        </div>
+        <span class="badge ${badgeMap[status]}"><span class="badge-dot"></span>${status}</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="text-section-title" style="margin-bottom:16px;">Profile</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="settings-grid">
+        <div class="field"><label>Owner name</label><input id="p-owner" value="${esc(centre.owner_name)}" /></div>
+        <div class="field"><label>Owner phone</label><input id="p-phone" value="${esc(centre.owner_phone||'')}" /></div>
+      </div>
+      <p class="text-small" style="margin-bottom:12px;">Centre name and login ID are managed by FeeFlow Pro — contact support to change those.</p>
+      <button class="btn btn-primary btn-sm" id="p-save">Save profile</button>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="text-section-title" style="margin-bottom:16px;">Notifications</div>
+      ${toggleRow('pref-whatsapp', 'WhatsApp reminder shortcuts', 'Show the quick "Remind" button on pending and overdue fees', prefs.whatsapp)}
+      ${toggleRow('pref-email', 'Weekly email summary', 'A weekly digest of collections — coming soon', prefs.email, true)}
+    </div>
+
+    <div class="card">
+      <div class="text-section-title" style="margin-bottom:16px;">Change password</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="settings-grid">
+        <div class="field"><label>New password</label><input id="p-pw1" type="password" /></div>
+        <div class="field"><label>Confirm new password</label><input id="p-pw2" type="password" /></div>
+      </div>
+      <div id="p-pw-err" class="error-text"></div>
+      <div id="p-pw-success"></div>
+      <button class="btn btn-primary btn-sm" id="p-pw-save">Update password</button>
+    </div>
+    <style>@media (max-width:600px){.settings-grid{grid-template-columns:1fr !important;}}</style>
+  `;
+  ic();
+
+  document.getElementById('p-save').onclick = async () => {
+    const list = await loadCentres();
+    const target = list.find(c => c.id === centre.id);
+    target.owner_name = document.getElementById('p-owner').value.trim() || target.owner_name;
+    target.owner_phone = document.getElementById('p-phone').value.trim();
+    await saveCentres(list);
+    render();
+  };
+
+  const whatsappToggle = document.getElementById('pref-whatsapp');
+  whatsappToggle.onclick = async () => {
+    const list = await loadCentres();
+    const target = list.find(c => c.id === centre.id);
+    target.notif_prefs = target.notif_prefs || { whatsapp: true, email: false };
+    target.notif_prefs.whatsapp = !target.notif_prefs.whatsapp;
+    await saveCentres(list);
+    render();
+  };
+
+  document.getElementById('p-pw-save').onclick = async () => {
+    const p1 = document.getElementById('p-pw1').value;
+    const p2 = document.getElementById('p-pw2').value;
+    const errEl = document.getElementById('p-pw-err'); errEl.textContent = '';
+    if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
+    if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
+    const list = await loadCentres();
+    const target = list.find(c => c.id === centre.id);
+    target.password = p1;
+    await saveCentres(list);
+    document.getElementById('p-pw-success').innerHTML = `<div class="banner banner-success" style="margin-top:12px;">${svgIcon('check')}Password updated.</div>`;
+    ic();
+  };
+}
+function toggleRow(id, title, desc, checked, disabled) {
+  return `
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border);">
+    <div>
+      <div style="font-size:14px; font-weight:500;">${title}</div>
+      <div class="text-small">${desc}</div>
+    </div>
+    <button id="${id}" ${disabled?'disabled':''} style="width:40px; height:22px; border-radius:999px; border:${checked?'none':'1px solid #94A3B8'}; cursor:${disabled?'not-allowed':'pointer'}; background:${checked?'var(--accent)':'#94A3B8'}; position:relative; flex-shrink:0; opacity:${disabled?0.5:1};">
+      <span style="position:absolute; top:2px; left:${checked?'20px':'2px'}; width:18px; height:18px; border-radius:50%; background:white; box-shadow:0 1px 2px rgba(0,0,0,0.25); transition:left .12s;"></span>
+    </button>
+  </div>`;
+}
+
+
+async function renderAdminShell() {
+  if (!state.session || state.session.type !== 'admin') { state.view = 'login'; render(); return; }
+  const adminAuth = await loadAdminAuth();
+
+  document.getElementById('app').innerHTML = `
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <div class="admin-mobile-bar">
+      <button class="icon-btn" id="admin-hamburger" title="Open menu" aria-label="Open menu">${svgIcon('menu')}</button>
+      <div class="nav-logo"><span class="dot"></span>FeeFlow Pro</div>
+    </div>
+    <div class="admin-shell">
+      <div class="sidebar" id="admin-sidebar">
+        <div class="sidebar-logo"><span class="dot"></span><span>FeeFlow Pro</span></div>
+        <div class="sidebar-profile">
+          <div class="avatar">${initials(adminAuth.name || 'Admin')}</div>
+          <div>
+            <div class="name">${esc(adminAuth.name || 'Platform Admin')}</div>
+            <div class="role">Platform Admin</div>
+          </div>
+        </div>
+        <div class="sidebar-nav-item ${state.adminView==='dashboard'?'active':''}" data-adminview="dashboard" title="Dashboard" aria-label="Dashboard">${svgIcon('layout-dashboard')}<span>Dashboard</span></div>
+        <div class="sidebar-nav-item ${state.adminView==='create'?'active':''}" data-adminview="create" title="Create Centre" aria-label="Create Centre">${svgIcon('plus-circle')}<span>Create Centre</span></div>
+        <div class="sidebar-nav-item ${state.adminView==='settings'?'active':''}" data-adminview="settings" title="Settings" aria-label="Settings">${svgIcon('settings')}<span>Settings</span></div>
+        <div class="sidebar-bottom">
+          <div class="sidebar-nav-item" id="admin-theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">${svgIcon('moon')}<span>Dark mode</span></div>
+          <div class="sidebar-nav-item" id="admin-signout" title="Sign out" aria-label="Sign out">${svgIcon('log-out')}<span>Sign out</span></div>
+        </div>
+      </div>
+      <div class="admin-main"><div class="page-max" id="admin-content"></div></div>
+    </div>`;
+
+  const hamburger = document.getElementById('admin-hamburger');
+  const sidebarEl = document.getElementById('admin-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (hamburger) hamburger.onclick = () => { sidebarEl.classList.add('open'); backdrop.classList.add('open'); };
+  if (backdrop) backdrop.onclick = () => { sidebarEl.classList.remove('open'); backdrop.classList.remove('open'); };
+
+  const adminThemeToggle = document.getElementById('admin-theme-toggle');
+  const isDarkNow = document.documentElement.getAttribute('data-theme') === 'dark';
+  adminThemeToggle.innerHTML = `${svgIcon(isDarkNow ? 'sun' : 'moon')}<span>${isDarkNow ? 'Light mode' : 'Dark mode'}</span>`;
+  adminThemeToggle.onclick = async () => { await toggleTheme(); renderAdminShell(); };
+
+  document.getElementById('admin-signout').onclick = signOut;
+  document.querySelectorAll('[data-adminview]').forEach(el => {
+    el.onclick = () => { state.adminView = el.getAttribute('data-adminview'); state.lastCreatedCentre = null; renderAdminShell(); };
+  });
+
+  if (state.adminView === 'dashboard') await renderAdminDashboardView();
+  else if (state.adminView === 'create') await renderAdminCreateView();
+  else if (state.adminView === 'settings') await renderAdminSettingsView(adminAuth);
+  ic();
+}
+
+async function renderAdminDashboardView() {
+  const centres = await loadCentres();
+  const counts = { active:0, expired:0, locked:0, paused:0 };
+  centres.forEach(c => counts[computeStatus(c)]++);
+
+  document.getElementById('admin-content').innerHTML = `
+    <h1 class="text-page-title" style="margin-bottom:6px;">Dashboard</h1>
+    <p class="text-secondary" style="margin-bottom:24px;">Every coaching centre on FeeFlow Pro, at a glance.</p>
+
+    <div class="kpi-grid" style="margin-bottom:28px;">
+      ${kpiCard('building-2', 'var(--accent)', 'var(--accent-bg)', centres.length, 'Total centres', 'across all plans')}
+      ${kpiCard('check-circle', 'var(--success)', 'var(--success-bg)', counts.active, 'Active', 'in good standing')}
+      ${kpiCard('clock', 'var(--warning)', 'var(--warning-bg)', counts.expired, 'Expired', 'in grace period')}
+      ${kpiCard('lock', 'var(--danger)', 'var(--danger-bg)', counts.locked, 'Locked', 'access paused')}
+    </div>
+
+    <div class="row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div class="text-section-title">All centres (${centres.length})</div>
+      <button class="btn btn-primary btn-sm" id="go-create">${svgIcon('plus')}Add centre</button>
+    </div>
+    ${centres.length > 0 ? `
+    <div class="nav-search" style="width:100%; max-width:360px; margin-bottom:16px;">
+      ${svgIcon('search')}
+      <input id="admin-search" placeholder="Search by centre, owner, or login ID…" value="${esc(state.adminSearch)}" />
+    </div>` : ''}
+
+    ${centres.length === 0 ? emptyState('building-2', 'No centres yet', 'Click "Add centre" to create your first one.', 'Add centre', 'go-create') : `
+    <div class="card" style="padding:0; overflow-x:auto;">
+      <table class="data-table">
+        <thead><tr><th></th><th>Centre</th><th>Plan</th><th>Login ID</th><th>Status</th><th></th></tr></thead>
+        <tbody id="centre-tbody">
+          ${centres.filter(c => `${c.centre_name} ${c.owner_name} ${c.login_id}`.toLowerCase().includes(state.adminSearch.toLowerCase()))
+            .map(c => centreRowHtml(c)).join('')}
+        </tbody>
+      </table>
+    </div>`}
+    <div id="admin-modal-root"></div>
+  `;
+  ic();
+
+  document.getElementById('go-create').onclick = () => { state.adminView = 'create'; renderAdminShell(); };
+  const searchEl = document.getElementById('admin-search');
+  if (searchEl) { searchEl.oninput = () => { state.adminSearch = searchEl.value; renderAdminDashboardView(); }; searchEl.focus(); searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length); }
+
+  bindCentreRowActions(centres);
+}
+
+function centreRowHtml(c) {
+  const status = computeStatus(c);
+  const badgeMap = { active: 'badge-success', expired: 'badge-warning', locked: 'badge-danger', paused: 'badge-neutral' };
+  return `
+  <tr>
+    <td><div class="avatar">${initials(c.centre_name)}</div></td>
+    <td>
+      <div style="font-weight:500;">${esc(c.centre_name)}</div>
+      <div class="text-small">${esc(c.owner_name)}</div>
+    </td>
+    <td class="text-secondary" style="text-transform:capitalize;">${c.plan}</td>
+    <td><code>${esc(c.login_id)}</code></td>
+    <td><span class="badge ${badgeMap[status]}"><span class="badge-dot"></span>${status}</span></td>
+    <td>
+      <div style="display:flex; gap:6px; justify-content:flex-end;">
+        ${status === 'locked' ? `<button class="btn btn-ghost btn-sm btn-icon" data-unlock="${c.id}" title="Unlock">${svgIcon('lock-open')}</button>` : `<button class="btn btn-ghost btn-sm btn-icon" data-lock="${c.id}" title="Lock">${svgIcon('lock')}</button>`}
+        <button class="btn btn-ghost btn-sm btn-icon" data-manage="${c.id}" title="Manage">${svgIcon('settings-2')}</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function bindCentreRowActions(centres) {
+  document.querySelectorAll('[data-lock]').forEach(el => el.onclick = async () => {
+    const id = el.getAttribute('data-lock');
+    const list = await loadCentres();
+    const c = list.find(x => x.id === id);
+    if (!confirm(`Lock "${c.centre_name}"? They'll be able to view records but not add students or mark fees paid.`)) return;
+    c.manual_lock = true;
+    await saveCentres(list); renderAdminDashboardView();
+  });
+  document.querySelectorAll('[data-unlock]').forEach(el => el.onclick = async () => {
+    const id = el.getAttribute('data-unlock');
+    const list = await loadCentres();
+    const c = list.find(x => x.id === id);
+    c.manual_lock = false;
+    await saveCentres(list);
+    if (new Date() > new Date(c.subscription_end_date)) {
+      alert(`Unlocked. Note: their subscription end date (${c.subscription_end_date}) has already passed — set a new date in Manage to keep them active.`);
+    }
+    renderAdminDashboardView();
+  });
+  document.querySelectorAll('[data-manage]').forEach(el => el.onclick = () => openManageModal(el.getAttribute('data-manage'), centres));
+}
+
+function openManageModal(id, centres) {
+  const c = centres.find(x => x.id === id);
+  const status = computeStatus(c);
+  const root = document.body;
+  const overlay = document.createElement('div');
+  overlay.id = 'admin-modal-overlay';
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.4); display:flex; align-items:center; justify-content:center; z-index:100;';
+  overlay.innerHTML = `
+    <div class="card" style="width:100%; max-width:520px; margin:16px; max-height:85vh; overflow-y:auto;">
+      <div class="row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <div class="text-section-title">Manage ${esc(c.centre_name)}</div>
+        <button class="btn btn-ghost btn-icon" id="admin-modal-close">${svgIcon('x')}</button>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="field"><label>Centre name</label><input id="m-name" value="${esc(c.centre_name)}" /></div>
+        <div class="field"><label>Owner name</label><input id="m-owner" value="${esc(c.owner_name)}" /></div>
+        <div class="field"><label>Owner phone</label><input id="m-phone" value="${esc(c.owner_phone||'')}" /></div>
+        <div class="field"><label>Plan</label>
+          <select id="m-plan">
+            <option value="starter" ${c.plan==='starter'?'selected':''}>Starter</option>
+            <option value="standard" ${c.plan==='standard'?'selected':''}>Standard</option>
+            <option value="premium" ${c.plan==='premium'?'selected':''}>Premium</option>
+          </select>
+        </div>
+        <div class="field"><label>Login ID</label><input id="m-loginid" value="${esc(c.login_id)}" /></div>
+        <div class="field"><label>Subscription end date</label><input id="m-end" type="date" value="${c.subscription_end_date}" /></div>
+      </div>
+      <div id="m-err" class="error-text"></div>
+      <div style="display:flex; gap:8px; margin-bottom:18px;">
+        <button class="btn btn-primary btn-sm" id="m-save">Save changes</button>
+        <button class="btn btn-secondary btn-sm" id="m-resetpw">Reset password</button>
+        ${status !== 'paused' ? `<button class="btn btn-secondary btn-sm" id="m-pause">Pause account</button>` : `<button class="btn btn-secondary btn-sm" id="m-unpause">Unpause</button>`}
+      </div>
+      <div id="m-pw-result"></div>
+      <div style="border-top:1px solid var(--border); padding-top:16px;">
+        <button class="btn btn-danger btn-sm" id="m-delete">${svgIcon('trash-2')}Delete centre</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById('admin-modal-close').onclick = () => overlay.remove();
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+  document.getElementById('m-save').onclick = async () => {
+    const newLoginId = document.getElementById('m-loginid').value.trim();
+    const errEl = document.getElementById('m-err');
+    const list = await loadCentres();
+    if (!newLoginId) { errEl.textContent = 'Login ID cannot be empty.'; return; }
+    if (list.some(x => x.id !== id && x.login_id.toLowerCase() === newLoginId.toLowerCase())) { errEl.textContent = 'That login ID is already used.'; return; }
+    const target = list.find(x => x.id === id);
+    target.centre_name = document.getElementById('m-name').value.trim() || target.centre_name;
+    target.owner_name = document.getElementById('m-owner').value.trim() || target.owner_name;
+    target.owner_phone = document.getElementById('m-phone').value.trim();
+    target.plan = document.getElementById('m-plan').value;
+    target.login_id = newLoginId;
+    target.subscription_end_date = document.getElementById('m-end').value;
+    await saveCentres(list);
+    overlay.remove();
+    renderAdminDashboardView();
+  };
+  document.getElementById('m-resetpw').onclick = async () => {
+    const newPw = prompt(`Set a new password for ${c.centre_name}:`);
+    if (!newPw) return;
+    const list = await loadCentres();
+    const target = list.find(x => x.id === id);
+    target.password = newPw; target.must_reset_password = true;
+    await saveCentres(list);
+    document.getElementById('m-pw-result').innerHTML = `<div class="banner banner-success" style="margin-bottom:16px;">${svgIcon('check')}New password: <code>${esc(newPw)}</code> <button class="btn btn-secondary btn-sm" id="m-copy-pw" style="margin-left:6px;">Copy</button></div>`;
+    document.getElementById('m-copy-pw').onclick = (e) => copyText(newPw, e.target);
+  };
+  const pauseBtn = document.getElementById('m-pause');
+  if (pauseBtn) pauseBtn.onclick = async () => {
+    const list = await loadCentres();
+    list.find(x=>x.id===id).subscription_status = 'paused';
+    await saveCentres(list); overlay.remove(); renderAdminDashboardView();
+  };
+  const unpauseBtn = document.getElementById('m-unpause');
+  if (unpauseBtn) unpauseBtn.onclick = async () => {
+    const list = await loadCentres();
+    list.find(x=>x.id===id).subscription_status = 'active';
+    await saveCentres(list); overlay.remove(); renderAdminDashboardView();
+  };
+  document.getElementById('m-delete').onclick = async () => {
+    if (!confirm(`Delete "${c.centre_name}" permanently? This removes their login, students, and fee history. This cannot be undone.`)) return;
+    await deleteCentre(id);
+    overlay.remove();
+    renderAdminDashboardView();
+  };
+}
+
+async function renderAdminCreateView() {
+  document.getElementById('admin-content').innerHTML = `
+    <h1 class="text-page-title" style="margin-bottom:6px;">Create a centre</h1>
+    <p class="text-secondary" style="margin-bottom:24px;">Set up a coaching centre's login. You choose the ID and password yourself.</p>
+
+    <div class="card">
+      <div class="text-section-title" style="margin-bottom:16px;">Centre details</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="create-grid">
+        <div class="field"><label>Centre name</label><input id="c-name" /></div>
+        <div class="field"><label>Owner name</label><input id="c-owner" /></div>
+        <div class="field"><label>Owner phone</label><input id="c-phone" placeholder="10-digit number" /></div>
+        <div class="field"><label>Plan</label>
+          <select id="c-plan">
+            <option value="starter">Starter — ₹999–1,499/mo</option>
+            <option value="standard">Standard — ₹1,999–2,999/mo</option>
+            <option value="premium">Premium — ₹3,999+/mo</option>
+          </select>
+        </div>
+        <div class="field"><label>Subscription end date</label><input id="c-end" type="date" /></div>
+      </div>
+
+      <div class="text-section-title" style="margin:24px 0 12px;">Login credentials</div>
+      <div class="id-pass-box">
+        <div>
+          <div class="sub-label">ID section</div>
+          <input id="c-loginid" placeholder="e.g. sunrise-academy" />
+          <p class="text-small" style="margin-top:6px;">What the centre will type in to sign in. Must be unique.</p>
+        </div>
+        <div>
+          <div class="sub-label">Password section</div>
+          <input id="c-password" placeholder="Set a temporary password" />
+          <p class="text-small" style="margin-top:6px;">They'll be asked to set their own on first login.</p>
+        </div>
+      </div>
+
+      <div id="create-centre-err" class="error-text"></div>
+      <button class="btn btn-primary" id="create-centre-btn" style="margin-top:8px;">Create centre</button>
+
+      ${state.lastCreatedCentre ? `
+      <div class="banner banner-success" style="margin-top:20px; display:block;">
+        <strong>${esc(state.lastCreatedCentre.centreName)} created.</strong> Share this login once — copy it below.
+        <div class="id-pass-box" style="background:white; margin-top:12px;">
+          <div>
+            <div class="sub-label">ID section</div>
+            <div class="row" style="display:flex; justify-content:space-between; align-items:center;"><code style="font-size:14px;">${esc(state.lastCreatedCentre.loginId)}</code>
+              <button class="btn btn-secondary btn-sm" id="copy-id-btn">Copy</button></div>
+          </div>
+          <div>
+            <div class="sub-label">Password section</div>
+            <div class="row" style="display:flex; justify-content:space-between; align-items:center;"><code style="font-size:14px;">${esc(state.lastCreatedCentre.password)}</code>
+              <button class="btn btn-secondary btn-sm" id="copy-pw-btn">Copy</button></div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" id="copy-both-btn">Copy both</button>
+          <button class="btn btn-secondary btn-sm" id="create-another-btn">Create another</button>
+          <button class="btn btn-secondary btn-sm" id="go-dashboard-btn">Go to dashboard</button>
+        </div>
+      </div>` : ''}
+    </div>
+    <style>@media (max-width:600px){.create-grid{grid-template-columns:1fr !important;}}</style>
+  `;
+  ic();
+
+  document.getElementById('create-centre-btn').onclick = async () => {
+    const name = document.getElementById('c-name').value.trim();
+    const owner = document.getElementById('c-owner').value.trim();
+    const phone = document.getElementById('c-phone').value.trim();
+    const plan = document.getElementById('c-plan').value;
+    const end = document.getElementById('c-end').value;
+    const loginId = document.getElementById('c-loginid').value.trim();
+    const password = document.getElementById('c-password').value;
+    const errEl = document.getElementById('create-centre-err');
+    errEl.textContent = '';
+    if (!name || !owner || !end) { errEl.textContent = 'Please fill in centre name, owner name, and end date.'; return; }
+    if (!loginId) { errEl.textContent = 'Please set a login ID for this centre.'; return; }
+    if (!password || password.length < 4) { errEl.textContent = 'Please set a password (at least 4 characters).'; return; }
+    const list = await loadCentres();
+    const adminAuth = await loadAdminAuth();
+    if (loginId.toLowerCase() === adminAuth.login_id.toLowerCase() || list.some(c => c.login_id.toLowerCase() === loginId.toLowerCase())) {
+      errEl.textContent = 'That login ID is already taken — please choose another.'; return;
+    }
+    const newCentre = { id: genUUID(), centre_name: name, owner_name: owner, owner_phone: phone, plan, subscription_status: 'active', subscription_end_date: end, login_id: loginId, password, must_reset_password: true };
+    list.push(newCentre);
+    await saveCentres(list);
+    state.lastCreatedCentre = { centreName: name, loginId, password };
+    renderAdminCreateView();
+  };
+
+  const copyIdBtn = document.getElementById('copy-id-btn'); if (copyIdBtn) copyIdBtn.onclick = () => copyText(state.lastCreatedCentre.loginId, copyIdBtn);
+  const copyPwBtn = document.getElementById('copy-pw-btn'); if (copyPwBtn) copyPwBtn.onclick = () => copyText(state.lastCreatedCentre.password, copyPwBtn);
+  const copyBothBtn = document.getElementById('copy-both-btn'); if (copyBothBtn) copyBothBtn.onclick = () => copyText(`Login ID: ${state.lastCreatedCentre.loginId}\nPassword: ${state.lastCreatedCentre.password}`, copyBothBtn);
+  const createAnotherBtn = document.getElementById('create-another-btn'); if (createAnotherBtn) createAnotherBtn.onclick = () => { state.lastCreatedCentre = null; renderAdminCreateView(); };
+  const goDashboardBtn = document.getElementById('go-dashboard-btn'); if (goDashboardBtn) goDashboardBtn.onclick = () => { state.lastCreatedCentre = null; state.adminView = 'dashboard'; renderAdminShell(); };
+}
+
+async function renderAdminSettingsView(adminAuth) {
+  document.getElementById('admin-content').innerHTML = `
+    <h1 class="text-page-title" style="margin-bottom:6px;">Settings</h1>
+    <p class="text-secondary" style="margin-bottom:24px;">Manage your own admin profile and login.</p>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="text-section-title" style="margin-bottom:16px;">Profile</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="settings-grid">
+        <div class="field"><label>Display name</label><input id="s-name" value="${esc(adminAuth.name || '')}" /></div>
+        <div class="field"><label>Admin login ID</label><input id="s-loginid" value="${esc(adminAuth.login_id)}" /></div>
+      </div>
+      <div id="s-profile-err" class="error-text"></div>
+      <button class="btn btn-primary btn-sm" id="save-profile-btn">Save profile</button>
+    </div>
+
+    <div class="card">
+      <div class="text-section-title" style="margin-bottom:16px;">Change password</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="settings-grid">
+        <div class="field"><label>New password</label><input id="s-newpw1" type="password" /></div>
+        <div class="field"><label>Confirm new password</label><input id="s-newpw2" type="password" /></div>
+      </div>
+      <div id="s-pw-err" class="error-text"></div>
+      <div id="s-pw-success"></div>
+      <button class="btn btn-primary btn-sm" id="save-pw-btn">Update password</button>
+    </div>
+    <style>@media (max-width:600px){.settings-grid{grid-template-columns:1fr !important;}}</style>
+  `;
+  ic();
+
+  document.getElementById('save-profile-btn').onclick = async () => {
+    const name = document.getElementById('s-name').value.trim();
+    const loginId = document.getElementById('s-loginid').value.trim();
+    const errEl = document.getElementById('s-profile-err');
+    errEl.textContent = '';
+    if (!loginId) { errEl.textContent = 'Login ID cannot be empty.'; return; }
+    const centres = await loadCentres();
+    if (centres.some(c => c.login_id.toLowerCase() === loginId.toLowerCase())) { errEl.textContent = 'That ID is already used by a centre — choose another.'; return; }
+    const auth = await loadAdminAuth();
+    auth.name = name; auth.login_id = loginId;
+    await saveAdminAuth(auth);
+    renderAdminShell();
+  };
+  document.getElementById('save-pw-btn').onclick = async () => {
+    const p1 = document.getElementById('s-newpw1').value;
+    const p2 = document.getElementById('s-newpw2').value;
+    const errEl = document.getElementById('s-pw-err'); errEl.textContent = '';
+    if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
+    if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
+    const auth = await loadAdminAuth();
+    auth.password = p1;
+    await saveAdminAuth(auth);
+    document.getElementById('s-pw-success').innerHTML = `<div class="banner banner-success" style="margin-top:12px;">${svgIcon('check')}Password updated.</div>`;
+    ic();
+  };
+}
+
+function renderConfigNeeded() {
+  document.getElementById('app').innerHTML = `
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="nav-logo" style="margin-bottom:8px;"><span class="dot"></span>FeeFlow Pro</div>
+      <h2 class="text-section-title" style="margin-bottom:10px;">Connect Supabase to continue</h2>
+      <p class="text-secondary" style="margin-bottom:16px;">This file isn't connected to a database yet. Open it in a text editor, find <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> near the top of the &lt;script&gt; tag, paste in your project's values, save, and reopen this file.</p>
+      <p class="text-small">Both values are in your Supabase dashboard under Project Settings → API.</p>
+    </div>
+  </div>`;
+}
+
+if (!sb) {
+  renderConfigNeeded();
+} else {
+  applyThemePref().then(render);
+}
+</script>
+</body>
+</html>
