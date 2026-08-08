@@ -386,7 +386,9 @@ const CACHE = {};
 
 async function loadCentres() {
   if (CACHE.centres) return CACHE.centres;
-  const { data, error } = await db().from('centres').select('*').order('created_at', { ascending: false });
+  const { data, error } = await db().from('centres')
+    .select('id, centre_name, owner_name, owner_phone, login_id, plan, subscription_status, subscription_end_date, manual_lock, must_reset_password, notif_prefs, created_at')
+    .order('created_at', { ascending: false });
   if (error) { console.error(error); return []; }
   CACHE.centres = data;
   return data;
@@ -455,14 +457,14 @@ async function saveActivity(centreId, list) {
 
 async function loadAdminAuth() {
   if (CACHE.admin_auth) return CACHE.admin_auth;
-  const { data, error } = await db().from('admin_settings').select('*').eq('id', 1).single();
-  if (error) { console.error(error); return { login_id: 'admin', password: 'admin123', name: 'Platform Admin' }; }
+  const { data, error } = await db().from('admin_settings').select('id, login_id, name').eq('id', 1).single();
+  if (error) { console.error(error); return { login_id: 'admin', name: 'Platform Admin' }; }
   CACHE.admin_auth = data;
   return data;
 }
 async function saveAdminAuth(auth) {
   CACHE.admin_auth = auth;
-  const { error } = await db().from('admin_settings').update({ login_id: auth.login_id, password: auth.password, name: auth.name }).eq('id', 1);
+  const { error } = await db().from('admin_settings').update({ login_id: auth.login_id, name: auth.name }).eq('id', 1);
   if (error) console.error(error);
 }
 async function logActivity(centreId, type, text) {
@@ -567,21 +569,21 @@ function bindLogin() {
     if (!id || !pw) { state.loginErr = 'Enter both your login ID and password.'; render(); return; }
     btn.disabled = true; btn.textContent = 'Signing in…';
     try {
-      const adminAuth = await withTimeout(loadAdminAuth(), 10000, 'Supabase');
-      if (id.toLowerCase() === adminAuth.login_id.toLowerCase() && pw === adminAuth.password) {
+      const { data, error } = await withTimeout(
+        db().rpc('verify_login', { p_login_id: id, p_password: pw }), 10000, 'Supabase'
+      );
+      if (error) { state.loginErr = error.message; render(); return; }
+      const result = data && data[0];
+      if (!result) { state.loginErr = "That login ID or password isn't right."; render(); return; }
+
+      if (result.role === 'admin') {
         state.session = { type: 'admin' }; state.loginErr = ''; state.view = 'admin'; state.adminView = 'dashboard';
         render(); return;
       }
-      const centres = await withTimeout(loadCentres(), 10000, 'Supabase');
-      const centre = centres.find(c => c.login_id.toLowerCase() === id.toLowerCase() && c.password === pw);
-      if (centre) {
-        state.loginErr = '';
-        state.session = { type: 'centre', centreId: centre.id };
-        state.view = centre.must_reset_password ? 'force_reset' : 'centre';
-        state.centreView = 'dashboard';
-        render(); return;
-      }
-      state.loginErr = "That login ID or password isn't right.";
+      state.loginErr = '';
+      state.session = { type: 'centre', centreId: result.centre_id };
+      state.view = result.must_reset_password ? 'force_reset' : 'centre';
+      state.centreView = 'dashboard';
       render();
     } catch (err) {
       console.error(err);
@@ -616,10 +618,9 @@ function bindForceReset() {
     const errEl = document.getElementById('fr-err');
     if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
     if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
-    const centres = await loadCentres();
-    const centre = centres.find(c => c.id === state.session.centreId);
-    centre.password = p1; centre.must_reset_password = false;
-    await saveCentres(centres);
+    const { error } = await db().rpc('set_centre_password', { p_centre_id: state.session.centreId, p_new_password: p1 });
+    if (error) { errEl.textContent = error.message; return; }
+    delete CACHE.centres; // must_reset_password changed server-side; drop the stale cached copy
     state.view = 'centre'; state.centreView = 'dashboard';
     render();
   };
@@ -1294,10 +1295,8 @@ async function renderCentreSettingsPage(centre) {
     const errEl = document.getElementById('p-pw-err'); errEl.textContent = '';
     if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
     if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
-    const list = await loadCentres();
-    const target = list.find(c => c.id === centre.id);
-    target.password = p1;
-    await saveCentres(list);
+    const { error } = await db().rpc('set_centre_password', { p_centre_id: centre.id, p_new_password: p1 });
+    if (error) { errEl.textContent = error.message; return; }
     document.getElementById('p-pw-success').innerHTML = `<div class="banner banner-success" style="margin-top:12px;">${svgIcon('check')}Password updated.</div>`;
     ic();
   };
@@ -1524,10 +1523,9 @@ function openManageModal(id, centres) {
   document.getElementById('m-resetpw').onclick = async () => {
     const newPw = prompt(`Set a new password for ${c.centre_name}:`);
     if (!newPw) return;
-    const list = await loadCentres();
-    const target = list.find(x => x.id === id);
-    target.password = newPw; target.must_reset_password = true;
-    await saveCentres(list);
+    const { error } = await db().rpc('admin_reset_centre_password', { p_centre_id: id, p_new_password: newPw });
+    if (error) { alert(error.message); return; }
+    delete CACHE.centres;
     document.getElementById('m-pw-result').innerHTML = `<div class="banner banner-success" style="margin-bottom:16px;">${svgIcon('check')}New password: <code>${esc(newPw)}</code> <button class="btn btn-secondary btn-sm" id="m-copy-pw" style="margin-left:6px;">Copy</button></div>`;
     document.getElementById('m-copy-pw').onclick = (e) => copyText(newPw, e.target);
   };
@@ -1628,14 +1626,12 @@ async function renderAdminCreateView() {
     if (!name || !owner || !end) { errEl.textContent = 'Please fill in centre name, owner name, and end date.'; return; }
     if (!loginId) { errEl.textContent = 'Please set a login ID for this centre.'; return; }
     if (!password || password.length < 4) { errEl.textContent = 'Please set a password (at least 4 characters).'; return; }
-    const list = await loadCentres();
-    const adminAuth = await loadAdminAuth();
-    if (loginId.toLowerCase() === adminAuth.login_id.toLowerCase() || list.some(c => c.login_id.toLowerCase() === loginId.toLowerCase())) {
-      errEl.textContent = 'That login ID is already taken — please choose another.'; return;
-    }
-    const newCentre = { id: genUUID(), centre_name: name, owner_name: owner, owner_phone: phone, plan, subscription_status: 'active', subscription_end_date: end, login_id: loginId, password, must_reset_password: true };
-    list.push(newCentre);
-    await saveCentres(list);
+    const { error } = await db().rpc('create_centre', {
+      p_centre_name: name, p_owner_name: owner, p_owner_phone: phone, p_plan: plan,
+      p_subscription_end_date: end, p_login_id: loginId, p_password: password,
+    });
+    if (error) { errEl.textContent = error.message; return; }
+    delete CACHE.centres;
     state.lastCreatedCentre = { centreName: name, loginId, password };
     renderAdminCreateView();
   };
@@ -1695,9 +1691,8 @@ async function renderAdminSettingsView(adminAuth) {
     const errEl = document.getElementById('s-pw-err'); errEl.textContent = '';
     if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
     if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
-    const auth = await loadAdminAuth();
-    auth.password = p1;
-    await saveAdminAuth(auth);
+    const { error } = await db().rpc('admin_set_own_password', { p_new_password: p1 });
+    if (error) { errEl.textContent = error.message; return; }
     document.getElementById('s-pw-success').innerHTML = `<div class="banner banner-success" style="margin-top:12px;">${svgIcon('check')}Password updated.</div>`;
     ic();
   };
