@@ -386,9 +386,7 @@ const CACHE = {};
 
 async function loadCentres() {
   if (CACHE.centres) return CACHE.centres;
-  const { data, error } = await db().from('centres')
-    .select('id, centre_name, owner_name, owner_phone, login_id, plan, subscription_status, subscription_end_date, manual_lock, must_reset_password, notif_prefs, created_at')
-    .order('created_at', { ascending: false });
+  const { data, error } = await db().from('centres').select('*').order('created_at', { ascending: false });
   if (error) { console.error(error); return []; }
   CACHE.centres = data;
   return data;
@@ -457,15 +455,17 @@ async function saveActivity(centreId, list) {
 
 async function loadAdminAuth() {
   if (CACHE.admin_auth) return CACHE.admin_auth;
-  const { data, error } = await db().from('admin_settings').select('id, login_id, name').eq('id', 1).single();
-  if (error) { console.error(error); return { login_id: 'admin', name: 'Platform Admin' }; }
+  const { data: { user } } = await db().auth.getUser();
+  const { data, error } = await db().from('admin_users').select('user_id, name').eq('user_id', user.id).single();
+  if (error) { console.error(error); return { name: 'Platform Admin' }; }
   CACHE.admin_auth = data;
   return data;
 }
-async function saveAdminAuth(auth) {
-  CACHE.admin_auth = auth;
-  const { error } = await db().from('admin_settings').update({ login_id: auth.login_id, name: auth.name }).eq('id', 1);
-  if (error) console.error(error);
+async function saveAdminName(name) {
+  const { data: { user } } = await db().auth.getUser();
+  const { error } = await db().from('admin_users').update({ name }).eq('user_id', user.id);
+  if (error) throw error;
+  delete CACHE.admin_auth;
 }
 async function logActivity(centreId, type, text) {
   const list = await loadActivity(centreId);
@@ -560,6 +560,23 @@ function withTimeout(promise, ms, label) {
   ]);
 }
 
+function loginIdToEmail(loginId) {
+  return loginId.toLowerCase().replace(/[^a-z0-9]/g, '') + '@accounts.feeflowpro.app';
+}
+
+async function resolveSessionRole() {
+  // After a real Supabase Auth sign-in, figure out whether this person is
+  // the admin or a specific centre -- both are just auth users now, RLS
+  // makes sure each can only ever see their own "am I this?" row.
+  const { data: { user } } = await db().auth.getUser();
+  if (!user) return null;
+  const { data: adminRow } = await db().from('admin_users').select('name').eq('user_id', user.id).maybeSingle();
+  if (adminRow) return { type: 'admin', name: adminRow.name };
+  const { data: centreRow } = await db().from('centres').select('id, centre_name, must_reset_password').eq('auth_user_id', user.id).maybeSingle();
+  if (centreRow) return { type: 'centre', centreId: centreRow.id, mustResetPassword: centreRow.must_reset_password };
+  return null;
+}
+
 function bindLogin() {
   const btn = document.getElementById('li-btn');
   if (!btn) return;
@@ -569,20 +586,21 @@ function bindLogin() {
     if (!id || !pw) { state.loginErr = 'Enter both your login ID and password.'; render(); return; }
     btn.disabled = true; btn.textContent = 'Signing in…';
     try {
-      const { data, error } = await withTimeout(
-        db().rpc('verify_login', { p_login_id: id, p_password: pw }), 10000, 'Supabase'
+      const { error: authError } = await withTimeout(
+        db().auth.signInWithPassword({ email: loginIdToEmail(id), password: pw }), 10000, 'Supabase'
       );
-      if (error) { state.loginErr = error.message; render(); return; }
-      const result = data && data[0];
-      if (!result) { state.loginErr = "That login ID or password isn't right."; render(); return; }
+      if (authError) { state.loginErr = "That login ID or password isn't right."; render(); return; }
 
-      if (result.role === 'admin') {
+      const role = await resolveSessionRole();
+      if (!role) { state.loginErr = 'Signed in, but no account is linked to this login. Contact FeeFlow Pro.'; render(); return; }
+
+      if (role.type === 'admin') {
         state.session = { type: 'admin' }; state.loginErr = ''; state.view = 'admin'; state.adminView = 'dashboard';
         render(); return;
       }
       state.loginErr = '';
-      state.session = { type: 'centre', centreId: result.centre_id };
-      state.view = result.must_reset_password ? 'force_reset' : 'centre';
+      state.session = { type: 'centre', centreId: role.centreId };
+      state.view = role.mustResetPassword ? 'force_reset' : 'centre';
       state.centreView = 'dashboard';
       render();
     } catch (err) {
@@ -618,15 +636,18 @@ function bindForceReset() {
     const errEl = document.getElementById('fr-err');
     if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
     if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
-    const { error } = await db().rpc('set_centre_password', { p_centre_id: state.session.centreId, p_new_password: p1 });
-    if (error) { errEl.textContent = error.message; return; }
-    delete CACHE.centres; // must_reset_password changed server-side; drop the stale cached copy
+    const { error: pwError } = await db().auth.updateUser({ password: p1 });
+    if (pwError) { errEl.textContent = pwError.message; return; }
+    const { error: flagError } = await db().rpc('clear_my_reset_flag');
+    if (flagError) { errEl.textContent = flagError.message; return; }
     state.view = 'centre'; state.centreView = 'dashboard';
     render();
   };
 }
 
-function signOut() {
+async function signOut() {
+  await db().auth.signOut();
+  for (const k in CACHE) delete CACHE[k];
   state.session = null; state.view = 'login'; state.loginErr='';
   state.lastCreatedCentre = null; state.adminSearch=''; state.editingCentreId = null; state.adminView = 'dashboard';
   state.centreView = 'dashboard'; state.showNotif = false; state.showProfile = false;
@@ -1271,21 +1292,25 @@ async function renderCentreSettingsPage(centre) {
   ic();
 
   document.getElementById('p-save').onclick = async () => {
-    const list = await loadCentres();
-    const target = list.find(c => c.id === centre.id);
-    target.owner_name = document.getElementById('p-owner').value.trim() || target.owner_name;
-    target.owner_phone = document.getElementById('p-phone').value.trim();
-    await saveCentres(list);
+    const ownerName = document.getElementById('p-owner').value.trim();
+    const ownerPhone = document.getElementById('p-phone').value.trim();
+    const { error } = await db().rpc('update_my_centre_profile', {
+      p_owner_name: ownerName, p_owner_phone: ownerPhone, p_notif_prefs: null,
+    });
+    if (error) { alert(error.message); return; }
+    delete CACHE.centres;
     render();
   };
 
   const whatsappToggle = document.getElementById('pref-whatsapp');
   whatsappToggle.onclick = async () => {
-    const list = await loadCentres();
-    const target = list.find(c => c.id === centre.id);
-    target.notif_prefs = target.notif_prefs || { whatsapp: true, email: false };
-    target.notif_prefs.whatsapp = !target.notif_prefs.whatsapp;
-    await saveCentres(list);
+    const newPrefs = { ...(centre.notif_prefs || { whatsapp: true, email: false }) };
+    newPrefs.whatsapp = !newPrefs.whatsapp;
+    const { error } = await db().rpc('update_my_centre_profile', {
+      p_owner_name: null, p_owner_phone: centre.owner_phone || null, p_notif_prefs: newPrefs,
+    });
+    if (error) { alert(error.message); return; }
+    delete CACHE.centres;
     render();
   };
 
@@ -1295,7 +1320,7 @@ async function renderCentreSettingsPage(centre) {
     const errEl = document.getElementById('p-pw-err'); errEl.textContent = '';
     if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
     if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
-    const { error } = await db().rpc('set_centre_password', { p_centre_id: centre.id, p_new_password: p1 });
+    const { error } = await db().auth.updateUser({ password: p1 });
     if (error) { errEl.textContent = error.message; return; }
     document.getElementById('p-pw-success').innerHTML = `<div class="banner banner-success" style="margin-top:12px;">${svgIcon('check')}Password updated.</div>`;
     ic();
@@ -1523,8 +1548,10 @@ function openManageModal(id, centres) {
   document.getElementById('m-resetpw').onclick = async () => {
     const newPw = prompt(`Set a new password for ${c.centre_name}:`);
     if (!newPw) return;
-    const { error } = await db().rpc('admin_reset_centre_password', { p_centre_id: id, p_new_password: newPw });
-    if (error) { alert(error.message); return; }
+    const { data, error } = await db().functions.invoke('admin-reset-password', {
+      body: { centre_id: id, new_password: newPw },
+    });
+    if (error || (data && data.error)) { alert((data && data.error) || error.message); return; }
     delete CACHE.centres;
     document.getElementById('m-pw-result').innerHTML = `<div class="banner banner-success" style="margin-bottom:16px;">${svgIcon('check')}New password: <code>${esc(newPw)}</code> <button class="btn btn-secondary btn-sm" id="m-copy-pw" style="margin-left:6px;">Copy</button></div>`;
     document.getElementById('m-copy-pw').onclick = (e) => copyText(newPw, e.target);
@@ -1626,11 +1653,13 @@ async function renderAdminCreateView() {
     if (!name || !owner || !end) { errEl.textContent = 'Please fill in centre name, owner name, and end date.'; return; }
     if (!loginId) { errEl.textContent = 'Please set a login ID for this centre.'; return; }
     if (!password || password.length < 4) { errEl.textContent = 'Please set a password (at least 4 characters).'; return; }
-    const { error } = await db().rpc('create_centre', {
-      p_centre_name: name, p_owner_name: owner, p_owner_phone: phone, p_plan: plan,
-      p_subscription_end_date: end, p_login_id: loginId, p_password: password,
+    const { data, error } = await db().functions.invoke('create-centre', {
+      body: {
+        centre_name: name, owner_name: owner, owner_phone: phone,
+        plan, subscription_end_date: end, login_id: loginId, password,
+      },
     });
-    if (error) { errEl.textContent = error.message; return; }
+    if (error || (data && data.error)) { errEl.textContent = (data && data.error) || error.message; return; }
     delete CACHE.centres;
     state.lastCreatedCentre = { centreName: name, loginId, password };
     renderAdminCreateView();
@@ -1644,6 +1673,7 @@ async function renderAdminCreateView() {
 }
 
 async function renderAdminSettingsView(adminAuth) {
+  const { data: { user } } = await db().auth.getUser();
   document.getElementById('admin-content').innerHTML = `
     <h1 class="text-page-title" style="margin-bottom:6px;">Settings</h1>
     <p class="text-secondary" style="margin-bottom:24px;">Manage your own admin profile and login.</p>
@@ -1652,8 +1682,9 @@ async function renderAdminSettingsView(adminAuth) {
       <div class="text-section-title" style="margin-bottom:16px;">Profile</div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="settings-grid">
         <div class="field"><label>Display name</label><input id="s-name" value="${esc(adminAuth.name || '')}" /></div>
-        <div class="field"><label>Admin login ID</label><input id="s-loginid" value="${esc(adminAuth.login_id)}" /></div>
+        <div class="field"><label>Sign-in email (display only)</label><input value="${esc(user ? user.email : '')}" disabled style="opacity:0.6;" /></div>
       </div>
+      <p class="text-small" style="margin-bottom:12px;">To change your sign-in email, use Supabase Dashboard -> Authentication -> Users.</p>
       <div id="s-profile-err" class="error-text"></div>
       <button class="btn btn-primary btn-sm" id="save-profile-btn">Save profile</button>
     </div>
@@ -1674,16 +1705,14 @@ async function renderAdminSettingsView(adminAuth) {
 
   document.getElementById('save-profile-btn').onclick = async () => {
     const name = document.getElementById('s-name').value.trim();
-    const loginId = document.getElementById('s-loginid').value.trim();
     const errEl = document.getElementById('s-profile-err');
     errEl.textContent = '';
-    if (!loginId) { errEl.textContent = 'Login ID cannot be empty.'; return; }
-    const centres = await loadCentres();
-    if (centres.some(c => c.login_id.toLowerCase() === loginId.toLowerCase())) { errEl.textContent = 'That ID is already used by a centre — choose another.'; return; }
-    const auth = await loadAdminAuth();
-    auth.name = name; auth.login_id = loginId;
-    await saveAdminAuth(auth);
-    renderAdminShell();
+    try {
+      await saveAdminName(name);
+      renderAdminShell();
+    } catch (err) {
+      errEl.textContent = err.message || 'Could not save.';
+    }
   };
   document.getElementById('save-pw-btn').onclick = async () => {
     const p1 = document.getElementById('s-newpw1').value;
@@ -1691,7 +1720,7 @@ async function renderAdminSettingsView(adminAuth) {
     const errEl = document.getElementById('s-pw-err'); errEl.textContent = '';
     if (p1.length < 6) { errEl.textContent = 'Password should be at least 6 characters.'; return; }
     if (p1 !== p2) { errEl.textContent = "Passwords don't match."; return; }
-    const { error } = await db().rpc('admin_set_own_password', { p_new_password: p1 });
+    const { error } = await db().auth.updateUser({ password: p1 });
     if (error) { errEl.textContent = error.message; return; }
     document.getElementById('s-pw-success').innerHTML = `<div class="banner banner-success" style="margin-top:12px;">${svgIcon('check')}Password updated.</div>`;
     ic();
@@ -1710,10 +1739,26 @@ function renderConfigNeeded() {
   </div>`;
 }
 
+async function boot() {
+  await applyThemePref();
+  const { data: { session } } = await db().auth.getSession();
+  if (session) {
+    const role = await resolveSessionRole();
+    if (role && role.type === 'admin') {
+      state.session = { type: 'admin' }; state.view = 'admin'; state.adminView = 'dashboard';
+    } else if (role && role.type === 'centre') {
+      state.session = { type: 'centre', centreId: role.centreId };
+      state.view = role.mustResetPassword ? 'force_reset' : 'centre';
+      state.centreView = 'dashboard';
+    }
+  }
+  render();
+}
+
 if (!sb) {
   renderConfigNeeded();
 } else {
-  applyThemePref().then(render);
+  boot();
 }
 </script>
 </body>
