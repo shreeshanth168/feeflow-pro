@@ -121,8 +121,9 @@
 
   /* ---------- empty state ---------- */
   .empty-state { text-align: center; padding: 64px 24px; }
-  .empty-state .icon-wrap { width: 56px; height: 56px; border-radius: 50%; background: #F1F5F9; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; }
-  .empty-state .icon-wrap svg { width: 24px; height: 24px; color: var(--text-secondary); }
+  .icon-wrap { width: 56px; height: 56px; border-radius: 50%; background: #F1F5F9; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .icon-wrap svg { width: 24px; height: 24px; color: var(--text-secondary); }
+  .empty-state .icon-wrap { margin: 0 auto 18px; }
   .empty-state h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
   .empty-state p { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
 
