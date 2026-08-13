@@ -757,6 +757,19 @@ function statusBanner(status) {
   return '';
 }
 
+function backupReminderBanner(centreId) {
+  const last = getLastExport(centreId);
+  const days = daysSince(last);
+  if (days !== null && days < 7) return ''; // backed up recently, stay quiet
+  const message = last
+    ? `It's been ${days} days since your last local backup.`
+    : "You haven't downloaded a local backup yet.";
+  return `<div class="banner banner-warning" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+    <div style="display:flex; gap:10px; align-items:flex-start;">${svgIcon('download')}<div>${message} Keeping a copy on your own device protects you if anything ever goes wrong with the database.</div></div>
+    <button class="btn btn-secondary btn-sm no-print" id="backup-reminder-btn" style="flex-shrink:0;">Go to Settings</button>
+  </div>`;
+}
+
 // --- Dashboard page ---
 async function renderCentreDashboardPage(centre, status, writable, rows, students, payments) {
   const paid = rows.filter(r => r.status === 'paid');
@@ -799,6 +812,7 @@ async function renderCentreDashboardPage(centre, status, writable, rows, student
     </div>
 
     ${statusBanner(status)}
+    ${backupReminderBanner(centre.id)}
 
     <div class="kpi-grid" style="margin-bottom:28px;">
       ${kpiCard('users', 'var(--success)', 'var(--success-bg)', paid.length, 'Paid Students', `of ${rows.length} active students`)}
@@ -862,6 +876,8 @@ async function renderCentreDashboardPage(centre, status, writable, rows, student
   };
   document.getElementById('qa-collect-fee').onclick = () => { state.centreView = 'payments'; render(); };
   document.getElementById('qa-export').onclick = () => exportReportCsv(centre, rows);
+  const backupBtn = document.getElementById('backup-reminder-btn');
+  if (backupBtn) backupBtn.onclick = () => { state.centreView = 'settings'; render(); };
 }
 
 function kpiCard(icon, color, bg, num, label, trend) {
@@ -889,6 +905,67 @@ function exportReportCsv(centre, rows) {
   a.href = url; a.download = `${centre.centre_name.replace(/\s+/g,'-')}-report-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ---------- local backup / data export ----------
+// Downloads a complete snapshot (all students, all-time payment history,
+// recent activity) as a file the centre keeps on their own device — a
+// safety net independent of Supabase, in case of accidental deletion or
+// account issues on the database side.
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportFullBackupJson(centre) {
+  const students = await loadStudents(centre.id);
+  const payments = await loadPayments(centre.id);
+  const activity = await loadActivity(centre.id);
+  const backup = {
+    exported_at: new Date().toISOString(),
+    centre: { centre_name: centre.centre_name, owner_name: centre.owner_name, owner_phone: centre.owner_phone, plan: centre.plan },
+    students, payments, activity,
+  };
+  downloadBlob(
+    JSON.stringify(backup, null, 2),
+    `${centre.centre_name.replace(/\s+/g,'-')}-backup-${new Date().toISOString().slice(0,10)}.json`,
+    'application/json'
+  );
+  markExported(centre.id);
+}
+
+async function exportPaymentsHistoryCsv(centre) {
+  const students = await loadStudents(centre.id);
+  const payments = await loadPayments(centre.id);
+  const studentById = Object.fromEntries(students.map(s => [s.id, s]));
+  const header = 'Student,Month,Year,Amount Paid,Paid At\n';
+  const lines = payments.map(p => {
+    const s = studentById[p.studentId];
+    return [s ? s.student_name : '(deleted student)', p.month, p.year, p.amountPaid, p.paidAt].join(',');
+  });
+  downloadBlob(
+    header + lines.join('\n'),
+    `${centre.centre_name.replace(/\s+/g,'-')}-payment-history-${new Date().toISOString().slice(0,10)}.csv`,
+    'text/csv'
+  );
+  markExported(centre.id);
+}
+
+// Last-export timestamp lives in this browser only (not shared data) —
+// used purely to nudge with a friendly reminder, not enforced anywhere.
+function markExported(centreId) {
+  try { localStorage.setItem('feeflow_last_export_' + centreId, new Date().toISOString()); } catch {}
+}
+function getLastExport(centreId) {
+  try { return localStorage.getItem('feeflow_last_export_' + centreId); } catch { return null; }
+}
+function daysSince(iso) {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
 // --- Students page ---
@@ -1277,6 +1354,16 @@ async function renderCentreSettingsPage(centre) {
       ${toggleRow('pref-email', 'Weekly email summary', 'A weekly digest of collections — coming soon', prefs.email, true)}
     </div>
 
+    <div class="card" style="margin-bottom:18px;">
+      <div class="text-section-title" style="margin-bottom:6px;">Data & backup</div>
+      <p class="text-small" style="margin-bottom:16px;">Download a copy of your students and fee history to your own device — a safety net independent of the database.</p>
+      <p class="text-small" id="last-export-note" style="margin-bottom:14px;">${lastExportText(getLastExport(centre.id))}</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" id="export-backup-btn">${svgIcon('download')}Download full backup (JSON)</button>
+        <button class="btn btn-secondary btn-sm" id="export-payments-csv-btn">${svgIcon('download')}Download payment history (CSV)</button>
+      </div>
+    </div>
+
     <div class="card">
       <div class="text-section-title" style="margin-bottom:16px;">Change password</div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="settings-grid">
@@ -1290,6 +1377,29 @@ async function renderCentreSettingsPage(centre) {
     <style>@media (max-width:600px){.settings-grid{grid-template-columns:1fr !important;}}</style>
   `;
   ic();
+
+  document.getElementById('export-backup-btn').onclick = async (e) => {
+    const btn = e.currentTarget;
+    const original = btn.innerHTML;
+    btn.disabled = true; btn.textContent = 'Preparing…';
+    try {
+      await exportFullBackupJson(centre);
+      document.getElementById('last-export-note').textContent = lastExportText(getLastExport(centre.id));
+    } finally {
+      btn.disabled = false; btn.innerHTML = original;
+    }
+  };
+  document.getElementById('export-payments-csv-btn').onclick = async (e) => {
+    const btn = e.currentTarget;
+    const original = btn.innerHTML;
+    btn.disabled = true; btn.textContent = 'Preparing…';
+    try {
+      await exportPaymentsHistoryCsv(centre);
+      document.getElementById('last-export-note').textContent = lastExportText(getLastExport(centre.id));
+    } finally {
+      btn.disabled = false; btn.innerHTML = original;
+    }
+  };
 
   document.getElementById('p-save').onclick = async () => {
     const ownerName = document.getElementById('p-owner').value.trim();
@@ -1325,6 +1435,13 @@ async function renderCentreSettingsPage(centre) {
     document.getElementById('p-pw-success').innerHTML = `<div class="banner banner-success" style="margin-top:12px;">${svgIcon('check')}Password updated.</div>`;
     ic();
   };
+}
+function lastExportText(iso) {
+  if (!iso) return "You haven't exported a backup yet.";
+  const days = daysSince(iso);
+  if (days === 0) return 'Last backup: today.';
+  if (days === 1) return 'Last backup: yesterday.';
+  return `Last backup: ${days} days ago.`;
 }
 function toggleRow(id, title, desc, checked, disabled) {
   return `
