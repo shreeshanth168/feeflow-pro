@@ -4,9 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FeeFlow Pro</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="__SUPABASE_URL__">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; }
   :root {
     --bg: #F8FAFC; --surface: #FFFFFF; --primary: #0F172A; --text-secondary: #64748B;
@@ -571,9 +575,11 @@ async function resolveSessionRole() {
   // makes sure each can only ever see their own "am I this?" row.
   const { data: { user } } = await db().auth.getUser();
   if (!user) return null;
-  const { data: adminRow } = await db().from('admin_users').select('name').eq('user_id', user.id).maybeSingle();
+  const [{ data: adminRow }, { data: centreRow }] = await Promise.all([
+    db().from('admin_users').select('name').eq('user_id', user.id).maybeSingle(),
+    db().from('centres').select('id, centre_name, must_reset_password').eq('auth_user_id', user.id).maybeSingle(),
+  ]);
   if (adminRow) return { type: 'admin', name: adminRow.name };
-  const { data: centreRow } = await db().from('centres').select('id, centre_name, must_reset_password').eq('auth_user_id', user.id).maybeSingle();
   if (centreRow) return { type: 'centre', centreId: centreRow.id, mustResetPassword: centreRow.must_reset_password };
   return null;
 }
