@@ -19,8 +19,8 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 const srcPath = path.join(__dirname, 'index.html');
 let html = fs.readFileSync(srcPath, 'utf8');
 
-html = html.replace('__SUPABASE_URL__', SUPABASE_URL);
-html = html.replace('__SUPABASE_ANON_KEY__', SUPABASE_ANON_KEY);
+html = html.split('__SUPABASE_URL__').join(SUPABASE_URL);
+html = html.split('__SUPABASE_ANON_KEY__').join(SUPABASE_ANON_KEY);
 
 fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
 fs.writeFileSync(path.join(__dirname, 'public', 'index.html'), html);
