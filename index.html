@@ -404,13 +404,13 @@ async function loadCentres() {
 async function saveCentres(list) {
   CACHE.centres = list;
   const { error } = await db().from('centres').upsert(list);
-  if (error) console.error(error);
+  if (error) throw error;
 }
 async function deleteCentre(id) {
+  const { error } = await db().from('centres').delete().eq('id', id);
+  if (error) throw error;
   delete CACHE.centres;
   delete CACHE['students:' + id]; delete CACHE['payments:' + id]; delete CACHE['activity:' + id];
-  const { error } = await db().from('centres').delete().eq('id', id);
-  if (error) console.error(error);
 }
 
 async function loadStudents(centreId) {
@@ -422,10 +422,10 @@ async function loadStudents(centreId) {
   return data;
 }
 async function saveStudents(centreId, list) {
-  CACHE['students:' + centreId] = list;
   const rows = list.map(s => ({ ...s, centre_id: centreId }));
   const { error } = await db().from('students').upsert(rows);
-  if (error) console.error(error);
+  if (error) throw error;
+  CACHE['students:' + centreId] = list;
 }
 
 // Payments keep their existing camelCase shape (studentId/amountPaid/paidAt)
@@ -441,10 +441,10 @@ async function loadPayments(centreId) {
   return mapped;
 }
 async function savePayments(centreId, list) {
-  CACHE['payments:' + centreId] = list;
   const rows = list.map(p => ({ id: p.id, centre_id: centreId, student_id: p.studentId, month: p.month, year: p.year, amount_paid: p.amountPaid, paid_at: p.paidAt }));
   const { error } = await db().from('payments').upsert(rows);
-  if (error) console.error(error);
+  if (error) throw error;
+  CACHE['payments:' + centreId] = list;
 }
 
 async function loadActivity(centreId) {
@@ -457,10 +457,10 @@ async function loadActivity(centreId) {
 }
 async function saveActivity(centreId, list) {
   const trimmed = list.slice(-40);
-  CACHE['activity:' + centreId] = trimmed;
   const rows = trimmed.map(a => ({ ...a, centre_id: centreId }));
   const { error } = await db().from('activity_log').upsert(rows);
-  if (error) console.error(error);
+  if (error) throw error;
+  CACHE['activity:' + centreId] = trimmed;
 }
 
 async function loadAdminAuth() {
@@ -1051,11 +1051,18 @@ async function renderCentreStudentsPage(centre, writable, students) {
 
   document.querySelectorAll('[data-toggleactive]').forEach(el => el.onclick = async () => {
     const id = el.getAttribute('data-toggleactive');
-    const sList = await loadStudents(centre.id);
-    const s = sList.find(x => x.id === id);
-    s.is_active = !s.is_active;
-    await saveStudents(centre.id, sList);
-    render();
+    el.disabled = true;
+    try {
+      const sList = await loadStudents(centre.id);
+      const s = sList.find(x => x.id === id);
+      s.is_active = !s.is_active;
+      await saveStudents(centre.id, sList);
+      render();
+    } catch (err) {
+      delete CACHE['students:' + centre.id];
+      alert('Could not update this student: ' + (err.message || 'unknown error'));
+      render();
+    }
   });
 
   document.querySelectorAll('[data-view]').forEach(el => el.onclick = async () => {
@@ -1111,18 +1118,30 @@ async function renderCentreStudentsPage(centre, writable, students) {
       const name = document.getElementById('es-name').value.trim();
       const wa = document.getElementById('es-whatsapp').value.trim();
       const fee = Number(document.getElementById('es-fee').value);
-      if (!name || !wa || !fee) { document.getElementById('es-err').textContent = 'Name, WhatsApp, and fee are required.'; return; }
-      const sList = await loadStudents(centre.id);
-      const target = sList.find(x => x.id === id);
-      target.student_name = name;
-      target.parent_name = document.getElementById('es-parent').value.trim();
-      target.parent_whatsapp = wa;
-      target.batch = document.getElementById('es-batch').value.trim();
-      target.monthly_fee = fee;
-      target.fee_due_day = Number(document.getElementById('es-dueday').value);
-      await saveStudents(centre.id, sList);
-      closeModal();
-      render();
+      const dueDay = Number(document.getElementById('es-dueday').value);
+      const errEl = document.getElementById('es-err');
+      if (!name || !wa || !fee) { errEl.textContent = 'Name, WhatsApp, and fee are required.'; return; }
+      if (fee <= 0) { errEl.textContent = 'Monthly fee must be greater than zero.'; return; }
+      if (dueDay < 1 || dueDay > 28) { errEl.textContent = 'Due day must be between 1 and 28.'; return; }
+      const saveBtn = document.getElementById('es-save');
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+      try {
+        const sList = await loadStudents(centre.id);
+        const target = sList.find(x => x.id === id);
+        target.student_name = name;
+        target.parent_name = document.getElementById('es-parent').value.trim();
+        target.parent_whatsapp = wa;
+        target.batch = document.getElementById('es-batch').value.trim();
+        target.monthly_fee = fee;
+        target.fee_due_day = dueDay;
+        await saveStudents(centre.id, sList);
+        closeModal();
+        render();
+      } catch (err) {
+        delete CACHE['students:' + centre.id];
+        errEl.textContent = err.message || 'Could not save changes.';
+        saveBtn.disabled = false; saveBtn.textContent = 'Save changes';
+      }
     };
   });
 }
@@ -1171,12 +1190,22 @@ function openAddStudentModal(centre, batches) {
     const err = document.getElementById('as-err');
     err.textContent = '';
     if (!name || !wa || !fee) { err.textContent = 'Please fill in student name, WhatsApp number, and fee.'; return; }
-    const sList = await loadStudents(centre.id);
-    sList.push({ id: genUUID(), student_name: name, parent_name: parent, parent_whatsapp: wa, batch, monthly_fee: fee, fee_due_day: dueDay, is_active: true, created_at: new Date().toISOString() });
-    await saveStudents(centre.id, sList);
-    await logActivity(centre.id, 'student', `New student added: ${name}`);
-    closeModal();
-    render();
+    if (fee <= 0) { err.textContent = 'Monthly fee must be greater than zero.'; return; }
+    if (dueDay < 1 || dueDay > 28) { err.textContent = 'Due day must be between 1 and 28.'; return; }
+    const saveBtn = document.getElementById('as-save');
+    saveBtn.disabled = true; saveBtn.textContent = 'Adding…';
+    try {
+      const sList = await loadStudents(centre.id);
+      sList.push({ id: genUUID(), student_name: name, parent_name: parent, parent_whatsapp: wa, batch, monthly_fee: fee, fee_due_day: dueDay, is_active: true, created_at: new Date().toISOString() });
+      await saveStudents(centre.id, sList);
+      try { await logActivity(centre.id, 'student', `New student added: ${name}`); } catch (e) { console.error(e); }
+      closeModal();
+      render();
+    } catch (saveErr) {
+      delete CACHE['students:' + centre.id];
+      err.textContent = saveErr.message || 'Could not add student.';
+      saveBtn.disabled = false; saveBtn.textContent = 'Add student';
+    }
   };
 }
 function showModal(innerHtml) {
@@ -1215,12 +1244,22 @@ async function renderCentrePaymentsPage(centre, writable, rows) {
     const sid = el.getAttribute('data-markpaid');
     const row = rows.find(r => r.student.id === sid);
     const s = row.student;
-    const payList = await loadPayments(centre.id);
+    const btn = el;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true; btn.textContent = 'Saving…';
     const now = new Date();
-    payList.push({ id: genUUID(), studentId: sid, month: now.getMonth()+1, year: now.getFullYear(), amountPaid: s.monthly_fee, paidAt: now.toISOString() });
-    await savePayments(centre.id, payList);
-    await logActivity(centre.id, 'payment', `Collected ${money(s.monthly_fee)} from ${s.student_name}`);
-    await logActivity(centre.id, 'receipt', `Receipt generated for ${s.student_name}`);
+    try {
+      const payList = await loadPayments(centre.id);
+      payList.push({ id: genUUID(), studentId: sid, month: now.getMonth()+1, year: now.getFullYear(), amountPaid: s.monthly_fee, paidAt: now.toISOString() });
+      await savePayments(centre.id, payList);
+    } catch (err) {
+      delete CACHE['payments:' + centre.id]; // don't trust the optimistic in-memory change — re-fetch real state next time
+      alert('Could not record this payment: ' + (err.message || 'unknown error') + '. Nothing was saved — please try again.');
+      btn.disabled = false; btn.innerHTML = originalHtml;
+      return;
+    }
+    try { await logActivity(centre.id, 'payment', `Collected ${money(s.monthly_fee)} from ${s.student_name}`); } catch (e) { console.error(e); }
+    try { await logActivity(centre.id, 'receipt', `Receipt generated for ${s.student_name}`); } catch (e) { console.error(e); }
     const receiptNo = 'RCPT-' + now.getFullYear() + '-' + uid().slice(0,5).toUpperCase();
     showModal(`
       <div id="printable-receipt">
@@ -1250,12 +1289,14 @@ async function renderCentrePaymentsPage(centre, writable, rows) {
       </div>
     `);
     document.getElementById('print-receipt-btn').onclick = () => window.print();
+    document.getElementById('modal-close-btn').onclick = () => { closeModal(); render(); };
   });
 
   document.querySelectorAll('[data-remind]').forEach(el => el.onclick = async () => {
     const sid = el.getAttribute('data-remind');
     const row = rows.find(r => r.student.id === sid);
-    await logActivity(centre.id, 'reminder', `Fee reminder sent to ${row.student.parent_name || row.student.student_name}`);
+    try { await logActivity(centre.id, 'reminder', `Fee reminder sent to ${row.student.parent_name || row.student.student_name}`); }
+    catch (e) { console.error(e); }
   });
 }
 function paySection(title, list, writable) {
@@ -1598,14 +1639,28 @@ function bindCentreRowActions(centres) {
     const c = list.find(x => x.id === id);
     if (!confirm(`Lock "${c.centre_name}"? They'll be able to view records but not add students or mark fees paid.`)) return;
     c.manual_lock = true;
-    await saveCentres(list); renderAdminDashboardView();
+    try {
+      await saveCentres(list);
+      renderAdminDashboardView();
+    } catch (err) {
+      delete CACHE.centres;
+      alert('Could not lock this centre: ' + (err.message || 'unknown error'));
+      renderAdminDashboardView();
+    }
   });
   document.querySelectorAll('[data-unlock]').forEach(el => el.onclick = async () => {
     const id = el.getAttribute('data-unlock');
     const list = await loadCentres();
     const c = list.find(x => x.id === id);
     c.manual_lock = false;
-    await saveCentres(list);
+    try {
+      await saveCentres(list);
+    } catch (err) {
+      delete CACHE.centres;
+      alert('Could not unlock this centre: ' + (err.message || 'unknown error'));
+      renderAdminDashboardView();
+      return;
+    }
     if (new Date() > new Date(c.subscription_end_date)) {
       alert(`Unlocked. Note: their subscription end date (${c.subscription_end_date}) has already passed — set a new date in Manage to keep them active.`);
     }
@@ -1638,9 +1693,10 @@ function openManageModal(id, centres) {
             <option value="premium" ${c.plan==='premium'?'selected':''}>Premium</option>
           </select>
         </div>
-        <div class="field"><label>Login ID</label><input id="m-loginid" value="${esc(c.login_id)}" /></div>
+        <div class="field"><label>Login ID (fixed)</label><input id="m-loginid" value="${esc(c.login_id)}" disabled style="opacity:0.6;" /></div>
         <div class="field"><label>Subscription end date</label><input id="m-end" type="date" value="${c.subscription_end_date}" /></div>
       </div>
+      <p class="text-small" style="margin-top:-8px; margin-bottom:14px;">Login ID can't be changed here — it's tied to their actual sign-in email. To fix a typo, delete and recreate the centre instead.</p>
       <div id="m-err" class="error-text"></div>
       <div style="display:flex; gap:8px; margin-bottom:18px;">
         <button class="btn btn-primary btn-sm" id="m-save">Save changes</button>
@@ -1658,21 +1714,26 @@ function openManageModal(id, centres) {
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
   document.getElementById('m-save').onclick = async () => {
-    const newLoginId = document.getElementById('m-loginid').value.trim();
     const errEl = document.getElementById('m-err');
+    errEl.textContent = '';
     const list = await loadCentres();
-    if (!newLoginId) { errEl.textContent = 'Login ID cannot be empty.'; return; }
-    if (list.some(x => x.id !== id && x.login_id.toLowerCase() === newLoginId.toLowerCase())) { errEl.textContent = 'That login ID is already used.'; return; }
     const target = list.find(x => x.id === id);
     target.centre_name = document.getElementById('m-name').value.trim() || target.centre_name;
     target.owner_name = document.getElementById('m-owner').value.trim() || target.owner_name;
     target.owner_phone = document.getElementById('m-phone').value.trim();
     target.plan = document.getElementById('m-plan').value;
-    target.login_id = newLoginId;
     target.subscription_end_date = document.getElementById('m-end').value;
-    await saveCentres(list);
-    overlay.remove();
-    renderAdminDashboardView();
+    const saveBtn = document.getElementById('m-save');
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+    try {
+      await saveCentres(list);
+      overlay.remove();
+      renderAdminDashboardView();
+    } catch (err) {
+      delete CACHE.centres;
+      errEl.textContent = err.message || 'Could not save changes.';
+      saveBtn.disabled = false; saveBtn.textContent = 'Save changes';
+    }
   };
   document.getElementById('m-resetpw').onclick = async () => {
     const newPw = prompt(`Set a new password for ${c.centre_name}:`);
@@ -1689,19 +1750,33 @@ function openManageModal(id, centres) {
   if (pauseBtn) pauseBtn.onclick = async () => {
     const list = await loadCentres();
     list.find(x=>x.id===id).subscription_status = 'paused';
-    await saveCentres(list); overlay.remove(); renderAdminDashboardView();
+    try {
+      await saveCentres(list); overlay.remove(); renderAdminDashboardView();
+    } catch (err) {
+      delete CACHE.centres;
+      alert('Could not pause this centre: ' + (err.message || 'unknown error'));
+    }
   };
   const unpauseBtn = document.getElementById('m-unpause');
   if (unpauseBtn) unpauseBtn.onclick = async () => {
     const list = await loadCentres();
     list.find(x=>x.id===id).subscription_status = 'active';
-    await saveCentres(list); overlay.remove(); renderAdminDashboardView();
+    try {
+      await saveCentres(list); overlay.remove(); renderAdminDashboardView();
+    } catch (err) {
+      delete CACHE.centres;
+      alert('Could not unpause this centre: ' + (err.message || 'unknown error'));
+    }
   };
   document.getElementById('m-delete').onclick = async () => {
     if (!confirm(`Delete "${c.centre_name}" permanently? This removes their login, students, and fee history. This cannot be undone.`)) return;
-    await deleteCentre(id);
-    overlay.remove();
-    renderAdminDashboardView();
+    try {
+      await deleteCentre(id);
+      overlay.remove();
+      renderAdminDashboardView();
+    } catch (err) {
+      alert('Could not delete this centre: ' + (err.message || 'unknown error'));
+    }
   };
 }
 
@@ -1781,17 +1856,26 @@ async function renderAdminCreateView() {
     errEl.textContent = '';
     if (!name || !owner || !end) { errEl.textContent = 'Please fill in centre name, owner name, and end date.'; return; }
     if (!loginId) { errEl.textContent = 'Please set a login ID for this centre.'; return; }
-    if (!password || password.length < 4) { errEl.textContent = 'Please set a password (at least 4 characters).'; return; }
-    const { data, error } = await db().functions.invoke('create-centre', {
-      body: {
-        centre_name: name, owner_name: owner, owner_phone: phone,
-        plan, subscription_end_date: end, login_id: loginId, password,
-      },
-    });
-    if (error || (data && data.error)) { errEl.textContent = (data && data.error) || error.message; return; }
-    delete CACHE.centres;
-    state.lastCreatedCentre = { centreName: name, loginId, password };
-    renderAdminCreateView();
+    if (!password || password.length < 6) { errEl.textContent = 'Please set a password (at least 6 characters).'; return; }
+    const btn = document.getElementById('create-centre-btn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const { data, error } = await db().functions.invoke('create-centre', {
+        body: {
+          centre_name: name, owner_name: owner, owner_phone: phone,
+          plan, subscription_end_date: end, login_id: loginId, password,
+        },
+      });
+      if (error || (data && data.error)) { errEl.textContent = (data && data.error) || error.message; return; }
+      delete CACHE.centres;
+      state.lastCreatedCentre = { centreName: name, loginId, password };
+      renderAdminCreateView();
+      return;
+    } catch (err) {
+      errEl.textContent = err.message || 'Could not create centre.';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Create centre';
+    }
   };
 
   const copyIdBtn = document.getElementById('copy-id-btn'); if (copyIdBtn) copyIdBtn.onclick = () => copyText(state.lastCreatedCentre.loginId, copyIdBtn);
