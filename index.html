@@ -32,8 +32,8 @@
     --shadow-lg: 0 20px 48px rgba(0,0,0,0.5);
   }
   body, .card, .navbar, .sidebar, input, select, .kpi-card, .dropdown-panel { transition: background-color .15s, border-color .15s, color .15s; }
-  html { scroll-behavior: smooth; }
-  body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--primary); -webkit-font-smoothing: antialiased; animation: fadeIn .2s ease; }
+  html { scroll-behavior: smooth; overflow-x: hidden; }
+  body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--primary); -webkit-font-smoothing: antialiased; animation: fadeIn .2s ease; overflow-x: hidden; max-width: 100vw; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   h1,h2,h3,p { margin: 0; }
   a { color: inherit; text-decoration: none; }
@@ -57,6 +57,9 @@
     width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
     font-family: inherit; font-size: 14px; background: var(--surface); color: var(--primary);
     transition: border-color .12s, box-shadow .12s;
+  }
+  @media (max-width: 600px) {
+    input, select { font-size: 16px; } /* iOS zooms the whole page in on focus below 16px — this stops that */
   }
   input::placeholder { color: #94A3B8; }
   input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
@@ -82,6 +85,7 @@
   .btn-sm { padding: 7px 12px; font-size: 13px; }
   .btn-block { width: 100%; }
   .btn-icon { padding: 8px; }
+  @media (max-width: 600px) { .btn-icon { padding: 12px; min-width: 44px; min-height: 44px; } }
 
   /* ---------- cards ---------- */
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; box-shadow: var(--shadow-sm); }
@@ -121,6 +125,7 @@
   .data-table tr:last-child td { border-bottom: none; }
   .data-table tr { transition: background .1s; }
   .data-table tbody tr:hover { background: #F8FAFC; }
+  @media (max-width: 640px) { .hide-mobile { display: none; } }
   .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-bg); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12.5px; flex-shrink: 0; }
 
   /* ---------- empty state ---------- */
@@ -170,6 +175,7 @@
   .nav-search input { padding-left: 34px; background: #F8FAFC; }
   .nav-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #94A3B8; }
   .icon-btn { position: relative; width: 36px; height: 36px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); border: 1px solid transparent; transition: all .12s; background: none; }
+  @media (max-width: 600px) { .icon-btn { width: 42px; height: 42px; } }
   .icon-btn:hover { background: #F1F5F9; color: var(--primary); }
   .icon-btn svg { width: 18px; height: 18px; }
   .notif-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
@@ -211,6 +217,7 @@
   /* ---------- login ---------- */
   .login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); }
   .login-card { width: 100%; max-width: 380px; background: var(--surface); border-radius: var(--r-lg); padding: 40px 36px; border: 1px solid var(--border); box-shadow: var(--shadow-lg); }
+  @media (max-width: 420px) { .login-card { padding: 28px 22px; } .login-shell { padding: 12px; } }
 
   /* ---------- id/pass box ---------- */
   .id-pass-box { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--bg); border: 1px dashed var(--border); border-radius: var(--r-md); padding: 16px; }
@@ -1006,7 +1013,7 @@ async function renderCentreStudentsPage(centre, writable, students) {
     ${filtered.length === 0 ? emptyState('users', 'No students yet', 'Start by adding your first student.', writable ? 'Add Student' : null, 'toggle-add-student') : `
     <div class="card" style="padding:0; overflow-x:auto;">
       <table class="data-table">
-        <thead><tr><th></th><th>Student</th><th>Class</th><th>Phone</th><th>Monthly Fee</th><th>Status</th><th>Last Payment</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Student</th><th class="hide-mobile">Class</th><th class="hide-mobile">Phone</th><th>Monthly Fee</th><th>Status</th><th class="hide-mobile">Last Payment</th><th></th></tr></thead>
         <tbody>
           ${filtered.map(s => {
             const payment = payments.find(p => p.studentId === s.id && p.month === m && p.year === y);
@@ -1017,11 +1024,11 @@ async function renderCentreStudentsPage(centre, writable, students) {
             <tr>
               <td><div class="avatar">${initials(s.student_name)}</div></td>
               <td style="font-weight:500;">${esc(s.student_name)}${!s.is_active ? ' <span class="badge badge-neutral" style="margin-left:6px;">Inactive</span>' : ''}</td>
-              <td class="text-secondary">${esc(s.batch)||'—'}</td>
-              <td class="text-secondary">${esc(s.parent_whatsapp)||'—'}</td>
+              <td class="text-secondary hide-mobile">${esc(s.batch)||'—'}</td>
+              <td class="text-secondary hide-mobile">${esc(s.parent_whatsapp)||'—'}</td>
               <td>${money(s.monthly_fee)}</td>
               <td>${statusBadge(s.is_active ? st : 'inactive')}</td>
-              <td class="text-secondary">${lastPayment ? timeAgo(lastPayment.paidAt) : '—'}</td>
+              <td class="text-secondary hide-mobile">${lastPayment ? timeAgo(lastPayment.paidAt) : '—'}</td>
               <td>
                 <div style="display:flex; gap:6px; justify-content:flex-end;">
                   <button class="btn btn-ghost btn-sm btn-icon" data-view="${s.id}" title="View" aria-label="View ${esc(s.student_name)}">${svgIcon('eye')}</button>
@@ -1104,10 +1111,10 @@ async function renderCentreStudentsPage(centre, writable, students) {
       <div class="text-section-title" style="margin-bottom:16px;">Edit student</div>
       <div class="field"><label>Student name</label><input id="es-name" value="${esc(s.student_name)}" /></div>
       <div class="field"><label>Parent name</label><input id="es-parent" value="${esc(s.parent_name||'')}" /></div>
-      <div class="field"><label>Parent WhatsApp</label><input id="es-whatsapp" value="${esc(s.parent_whatsapp)}" /></div>
+      <div class="field"><label>Parent WhatsApp</label><input id="es-whatsapp" type="tel" inputmode="numeric" value="${esc(s.parent_whatsapp)}" /></div>
       <div class="field"><label>Class / Batch</label><input id="es-batch" value="${esc(s.batch||'')}" /></div>
-      <div class="field"><label>Monthly fee (₹)</label><input id="es-fee" type="number" value="${s.monthly_fee}" /></div>
-      <div class="field"><label>Fee due day</label><input id="es-dueday" type="number" min="1" max="28" value="${s.fee_due_day}" /></div>
+      <div class="field"><label>Monthly fee (₹)</label><input id="es-fee" type="number" inputmode="decimal" value="${s.monthly_fee}" /></div>
+      <div class="field"><label>Fee due day</label><input id="es-dueday" type="number" inputmode="numeric" min="1" max="28" value="${s.fee_due_day}" /></div>
       <div id="es-err" class="error-text"></div>
       <div style="display:flex; gap:10px; margin-top:8px;">
         <button class="btn btn-primary" id="es-save">Save changes</button>
@@ -1168,12 +1175,12 @@ function openAddStudentModal(centre, batches) {
     <div class="text-section-title" style="margin-bottom:16px;">New student</div>
     <div class="field"><label>Student name</label><input id="as-name" /></div>
     <div class="field"><label>Parent name</label><input id="as-parent" /></div>
-    <div class="field"><label>Parent WhatsApp number</label><input id="as-whatsapp" placeholder="10-digit number" /></div>
+    <div class="field"><label>Parent WhatsApp number</label><input id="as-whatsapp" type="tel" inputmode="numeric" placeholder="10-digit number" /></div>
     <div class="field"><label>Class / Batch</label><input id="as-batch" placeholder="e.g. Batch A" list="as-batch-list" />
       <datalist id="as-batch-list">${batches.map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
     </div>
-    <div class="field"><label>Monthly fee (₹)</label><input id="as-fee" type="number" /></div>
-    <div class="field"><label>Fee due day of month</label><input id="as-dueday" type="number" min="1" max="28" value="5" /></div>
+    <div class="field"><label>Monthly fee (₹)</label><input id="as-fee" type="number" inputmode="decimal" /></div>
+    <div class="field"><label>Fee due day of month</label><input id="as-dueday" type="number" inputmode="numeric" min="1" max="28" value="5" /></div>
     <div id="as-err" class="error-text"></div>
     <div style="display:flex; gap:10px; margin-top:8px;">
       <button class="btn btn-primary" id="as-save">Add student</button>
@@ -1212,8 +1219,8 @@ function showModal(innerHtml) {
   const root = document.getElementById('student-modal-root') || document.body;
   const overlay = document.createElement('div');
   overlay.id = 'modal-overlay';
-  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.4); display:flex; align-items:center; justify-content:center; z-index:100; animation:fadeIn .15s ease;';
-  overlay.innerHTML = `<div class="card" style="width:100%; max-width:420px; margin:16px; box-shadow:var(--shadow-lg);">${innerHtml}</div>`;
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.4); display:flex; align-items:center; justify-content:center; z-index:100; animation:fadeIn .15s ease; padding:16px;';
+  overlay.innerHTML = `<div class="card" style="width:100%; max-width:420px; max-height:calc(100vh - 32px); overflow-y:auto; box-shadow:var(--shadow-lg);">${innerHtml}</div>`;
   overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
   document.body.appendChild(overlay);
   ic();
@@ -1395,7 +1402,7 @@ async function renderCentreSettingsPage(centre) {
       <div class="text-section-title" style="margin-bottom:16px;">Profile</div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="settings-grid">
         <div class="field"><label>Owner name</label><input id="p-owner" value="${esc(centre.owner_name)}" /></div>
-        <div class="field"><label>Owner phone</label><input id="p-phone" value="${esc(centre.owner_phone||'')}" /></div>
+        <div class="field"><label>Owner phone</label><input id="p-phone" type="tel" inputmode="numeric" value="${esc(centre.owner_phone||'')}" /></div>
       </div>
       <p class="text-small" style="margin-bottom:12px;">Centre name and login ID are managed by FeeFlow Pro — contact support to change those.</p>
       <button class="btn btn-primary btn-sm" id="p-save">Save profile</button>
@@ -1592,7 +1599,7 @@ async function renderAdminDashboardView() {
     ${centres.length === 0 ? emptyState('building-2', 'No centres yet', 'Click "Add centre" to create your first one.', 'Add centre', 'go-create') : `
     <div class="card" style="padding:0; overflow-x:auto;">
       <table class="data-table">
-        <thead><tr><th></th><th>Centre</th><th>Plan</th><th>Login ID</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Centre</th><th class="hide-mobile">Plan</th><th class="hide-mobile">Login ID</th><th>Status</th><th></th></tr></thead>
         <tbody id="centre-tbody">
           ${centres.filter(c => `${c.centre_name} ${c.owner_name} ${c.login_id}`.toLowerCase().includes(state.adminSearch.toLowerCase()))
             .map(c => centreRowHtml(c)).join('')}
@@ -1620,8 +1627,8 @@ function centreRowHtml(c) {
       <div style="font-weight:500;">${esc(c.centre_name)}</div>
       <div class="text-small">${esc(c.owner_name)}</div>
     </td>
-    <td class="text-secondary" style="text-transform:capitalize;">${c.plan}</td>
-    <td><code>${esc(c.login_id)}</code></td>
+    <td class="text-secondary hide-mobile" style="text-transform:capitalize;">${c.plan}</td>
+    <td class="hide-mobile"><code>${esc(c.login_id)}</code></td>
     <td><span class="badge ${badgeMap[status]}"><span class="badge-dot"></span>${status}</span></td>
     <td>
       <div style="display:flex; gap:6px; justify-content:flex-end;">
@@ -1682,10 +1689,10 @@ function openManageModal(id, centres) {
         <div class="text-section-title">Manage ${esc(c.centre_name)}</div>
         <button class="btn btn-ghost btn-icon" id="admin-modal-close">${svgIcon('x')}</button>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="manage-grid">
         <div class="field"><label>Centre name</label><input id="m-name" value="${esc(c.centre_name)}" /></div>
         <div class="field"><label>Owner name</label><input id="m-owner" value="${esc(c.owner_name)}" /></div>
-        <div class="field"><label>Owner phone</label><input id="m-phone" value="${esc(c.owner_phone||'')}" /></div>
+        <div class="field"><label>Owner phone</label><input id="m-phone" type="tel" inputmode="numeric" value="${esc(c.owner_phone||'')}" /></div>
         <div class="field"><label>Plan</label>
           <select id="m-plan">
             <option value="starter" ${c.plan==='starter'?'selected':''}>Starter</option>
@@ -1707,6 +1714,7 @@ function openManageModal(id, centres) {
       <div style="border-top:1px solid var(--border); padding-top:16px;">
         <button class="btn btn-danger btn-sm" id="m-delete">${svgIcon('trash-2')}Delete centre</button>
       </div>
+      <style>@media (max-width:600px){.manage-grid{grid-template-columns:1fr !important;}}</style>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -1790,7 +1798,7 @@ async function renderAdminCreateView() {
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="create-grid">
         <div class="field"><label>Centre name</label><input id="c-name" /></div>
         <div class="field"><label>Owner name</label><input id="c-owner" /></div>
-        <div class="field"><label>Owner phone</label><input id="c-phone" placeholder="10-digit number" /></div>
+        <div class="field"><label>Owner phone</label><input id="c-phone" type="tel" inputmode="numeric" placeholder="10-digit number" /></div>
         <div class="field"><label>Plan</label>
           <select id="c-plan">
             <option value="starter">Starter — ₹999–1,499/mo</option>
