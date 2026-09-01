@@ -298,6 +298,14 @@ function db() {
   }
   return sb;
 }
+// Delays calling fn until the user pauses for `delay` ms — used for
+// search boxes so typing doesn't trigger a full table rebuild on every
+// single keystroke, which is what was making typing feel laggy.
+function debounce(fn, delay) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+}
+
 function genUUID() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -1051,7 +1059,8 @@ async function renderCentreStudentsPage(centre, writable, students) {
 
   const searchEl = document.getElementById('s-search');
   if (searchEl) {
-    searchEl.oninput = () => { state.studentsSearch = searchEl.value; renderCentreStudentsPage(centre, writable, students); };
+    const debouncedRender = debounce(() => renderCentreStudentsPage(centre, writable, students), 200);
+    searchEl.oninput = () => { state.studentsSearch = searchEl.value; debouncedRender(); };
     searchEl.focus(); searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
   }
 
@@ -1612,7 +1621,11 @@ async function renderAdminDashboardView() {
 
   document.getElementById('go-create').onclick = () => { state.adminView = 'create'; renderAdminShell(); };
   const searchEl = document.getElementById('admin-search');
-  if (searchEl) { searchEl.oninput = () => { state.adminSearch = searchEl.value; renderAdminDashboardView(); }; searchEl.focus(); searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length); }
+  if (searchEl) {
+    const debouncedRender = debounce(() => renderAdminDashboardView(), 200);
+    searchEl.oninput = () => { state.adminSearch = searchEl.value; debouncedRender(); };
+    searchEl.focus(); searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
+  }
 
   bindCentreRowActions(centres);
 }
