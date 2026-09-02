@@ -354,10 +354,12 @@ function timeAgo(iso) {
   if (days < 30) return days + 'd ago';
   return new Date(iso).toLocaleDateString('en-IN', { day:'numeric', month:'short' });
 }
-function waLink(phone, studentName, amount, dueDay) {
+function waLink(phone, studentName, amount, dueDay, centreName) {
   let digits = (phone || '').replace(/\D/g,'');
   if (digits.length === 10) digits = '91' + digits;
-  const msg = `Hi! This is a reminder that ${studentName}'s tuition fee of Rs. ${amount} was due on the ${dueDay}th of this month. Please pay at your earliest convenience. Thank you!`;
+  const englishMsg = `Hi! This is a reminder that ${studentName}'s tuition fee of Rs. ${amount} was due on the ${dueDay}th of this month. Please pay at your earliest convenience. Thank you!`;
+  const teluguMsg = `నమస్తే! ${studentName} యొక్క ట్యూషన్ ఫీజు రూ.${amount} ఈ నెల ${dueDay}వ తేదీన చెల్లించవలసి ఉంది. దయచేసి వీలైనంత త్వరగా చెల్లించగలరు. ధన్యవాదాలు!`;
+  const msg = `*${centreName}*\n\n${englishMsg}\n\n${teluguMsg}`;
   return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
 }
 async function copyText(text, btn) {
@@ -1226,9 +1228,9 @@ async function renderCentrePaymentsPage(centre, writable, rows) {
     <h1 class="text-page-title" style="margin-bottom:24px;">Payments</h1>
     ${statusBanner(computeStatus(centre))}
     ${rows.length === 0 ? emptyState('receipt', 'No fee records yet', 'Add students to start tracking fees.', null, null) : `
-      ${paySection('Overdue', overdue, writable)}
-      ${paySection('Pending', pending, writable)}
-      ${paySection('Paid this month', paid, writable)}
+      ${paySection('Overdue', overdue, writable, centre.centre_name)}
+      ${paySection('Pending', pending, writable, centre.centre_name)}
+      ${paySection('Paid this month', paid, writable, centre.centre_name)}
     `}
     <div id="payment-modal-root"></div>
   `;
@@ -1293,7 +1295,7 @@ async function renderCentrePaymentsPage(centre, writable, rows) {
     catch (e) { console.error(e); }
   });
 }
-function paySection(title, list, writable) {
+function paySection(title, list, writable, centreName) {
   if (list.length === 0) return '';
   return `
   <div class="text-section-title" style="margin: 20px 0 12px;">${title} (${list.length})</div>
@@ -1309,7 +1311,7 @@ function paySection(title, list, writable) {
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
         ${r.status !== 'paid' ? `
-          <a class="btn btn-secondary btn-sm" target="_blank" href="${waLink(r.student.parent_whatsapp, r.student.student_name, r.student.monthly_fee, r.student.fee_due_day)}" data-remind="${r.student.id}">${svgIcon('send')}Remind</a>
+          <a class="btn btn-secondary btn-sm" target="_blank" href="${waLink(r.student.parent_whatsapp, r.student.student_name, r.student.monthly_fee, r.student.fee_due_day, centreName)}" data-remind="${r.student.id}">${svgIcon('send')}Remind</a>
           <button class="btn btn-primary btn-sm" data-markpaid="${r.student.id}" ${!writable?'disabled title="Renew subscription to mark paid"':''}>${svgIcon('hand-coins')}Collect Fee</button>
         ` : `<span class="badge badge-success"><span class="badge-dot"></span>Paid</span>`}
       </div>
