@@ -146,32 +146,10 @@
 
   code { background: #F1F5F9; padding: 2px 7px; border-radius: 5px; font-size: 12.5px; font-family: 'SF Mono', Consolas, monospace; }
 
-  /* ---------- navbar (centre app) ---------- */
-  .navbar { position: sticky; top: 0; z-index: 50; height: 72px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 32px; gap: 32px; }
-  @media (max-width: 900px) { .navbar { padding: 0 16px; gap: 16px; } }
+  /* ---------- shared bits still used by login/receipt screens ---------- */
   .nav-logo { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .nav-logo .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
-  .nav-links { display: flex; align-items: center; gap: 4px; flex: 1; }
-  .nav-link { padding: 8px 14px; border-radius: var(--r-sm); font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all .12s; }
-  .nav-link:hover { color: var(--primary); background: #F1F5F9; }
-  .nav-link.active { color: var(--primary); background: #F1F5F9; }
-  @media (max-width: 780px) { .nav-links { display: none; } }
-  .theme-toggle { }
-  .bottom-tabbar { display: none; }
-  @media (max-width: 780px) {
-    .bottom-tabbar {
-      display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 62px;
-      background: var(--surface); border-top: 1px solid var(--border); z-index: 50;
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-    .bottom-tabbar .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #4B5768; font-size: 10.5px; font-weight: 500; cursor: pointer; }
-    .bottom-tabbar .tab-item svg { width: 19px; height: 19px; }
-    .bottom-tabbar .tab-item.active { color: var(--accent); }
-    .page-max { padding-bottom: 84px; }
-  }
-  .nav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .nav-search { position: relative; width: 220px; }
-  @media (max-width: 780px) { .nav-search { display: none; } }
   .nav-search input { padding-left: 34px; background: #F8FAFC; }
   .nav-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #94A3B8; }
   .icon-btn { position: relative; width: 36px; height: 36px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); border: 1px solid transparent; transition: all .12s; background: none; }
